@@ -1,0 +1,1114 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Depuración de Bloqueados · PPS IKEA CD</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<style>
+  :root{
+    --azul:#0058A3; --azul-osc:#003E72; --amarillo:#FFDB00;
+    --rojo:#C8102E; --verde:#0A8A4B; --naranja:#E07B00;
+    --gris:#F3F5F8; --morado:#6B3FA0; --borde:#D9DEE5; --texto:#1C2430; --suave:#5B6573;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;font-family:"Segoe UI",Roboto,Arial,sans-serif;background:var(--gris);color:var(--texto)}
+  header{background:var(--azul);color:#fff;padding:14px 20px;display:flex;align-items:center;gap:14px;border-bottom:5px solid var(--amarillo)}
+  .escudo{width:42px;height:42px;border-radius:8px;background:var(--amarillo);color:var(--azul);display:flex;align-items:center;justify-content:center;font-weight:800;font-size:13px}
+  header h1{margin:0;font-size:19px}
+  header p{margin:2px 0 0;font-size:12.5px;opacity:.85}
+  main{max-width:1150px;margin:0 auto;padding:18px}
+  .card{background:#fff;border:1px solid var(--borde);border-radius:12px;padding:18px;margin-bottom:16px}
+  .card h2{margin:0 0 4px;font-size:16px;color:var(--azul-osc);display:flex;align-items:center;gap:8px}
+  .paso{background:var(--azul);color:#fff;border-radius:50%;width:24px;height:24px;display:inline-flex;align-items:center;justify-content:center;font-size:13px}
+  .sub{color:var(--suave);font-size:13px;margin:0 0 12px}
+  .drop{border:2px dashed #9FB3C8;border-radius:10px;padding:22px;text-align:center;cursor:pointer;background:#FAFCFF;transition:.15s}
+  .drop:hover,.drop.over{border-color:var(--azul);background:#EEF5FC}
+  .drop b{color:var(--azul)}
+  .drop small{display:block;color:var(--suave);margin-top:4px}
+  button{font:inherit;border:0;border-radius:8px;padding:9px 14px;cursor:pointer;font-weight:600}
+  .btn{background:var(--azul);color:#fff}
+  .btn:hover{background:var(--azul-osc)}
+  .btn-amarillo{background:var(--amarillo);color:var(--azul-osc)}
+  .btn-sec{background:#E8EDF3;color:var(--texto)}
+  .btn-peligro{background:#fff;color:var(--rojo);border:1px solid var(--rojo)}
+  .fila{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+  .stats{display:flex;gap:10px;flex-wrap:wrap;margin:12px 0}
+  .stat{flex:1;min-width:140px;border-radius:10px;padding:10px 14px;background:var(--gris)}
+  .stat .n{font-size:24px;font-weight:800}
+  .stat .l{font-size:12px;color:var(--suave)}
+  .stat.rojo .n{color:var(--rojo)} .stat.verde .n{color:var(--verde)} .stat.naranja .n{color:var(--naranja)} .stat.azul .n{color:var(--azul)}
+  .modo{display:flex;gap:16px;font-size:13.5px;margin:10px 0}
+  input[type=text],input[type=password]{font:inherit;padding:9px 12px;border:1px solid var(--borde);border-radius:8px}
+  .consulta-res{margin-top:10px;font-size:14px}
+  .tag{display:inline-block;padding:3px 9px;border-radius:20px;font-size:12px;font-weight:700}
+  .tag.rojo{background:#FDE7EA;color:var(--rojo)} .tag.verde{background:#E3F5EC;color:var(--verde)} .tag.naranja{background:#FFF1DE;color:var(--naranja)}
+  .resultado{border:1px solid var(--borde);border-radius:10px;margin-top:14px;overflow:hidden}
+  .res-head{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;padding:12px 14px;background:#F7F9FC;border-bottom:1px solid var(--borde)}
+  .res-head h3{margin:0;font-size:15px;word-break:break-all}
+  .tabs{display:flex;gap:4px;padding:10px 14px 0}
+  .tab{background:#EDF1F6;color:var(--suave);border-radius:8px 8px 0 0;padding:7px 12px;font-size:13px}
+  .tab.activa{background:var(--azul);color:#fff}
+  .tabla-wrap{max-height:380px;overflow:auto;border-top:1px solid var(--borde)}
+  table{border-collapse:collapse;width:100%;font-size:12.5px}
+  th,td{padding:6px 9px;border-bottom:1px solid #EDF0F4;text-align:left;white-space:nowrap}
+  th{position:sticky;top:0;background:#fff;color:var(--azul-osc);z-index:1;border-bottom:2px solid var(--borde)}
+  tr.bloq td{background:#FFF6F7}
+  .vacio{padding:18px;text-align:center;color:var(--suave);font-size:13px}
+  .aviso{background:#FFF8D6;border:1px solid #F2D96B;border-radius:8px;padding:9px 12px;font-size:13px;margin-top:10px}
+  .oculto{display:none}
+  .stat.morado .n{color:var(--morado)}
+  .tag.morado{background:#EFE7F8;color:var(--morado)} .tag.gris{background:#EDF0F4;color:var(--suave)}
+  .bases{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:14px}
+  .base-box{border:1px solid var(--borde);border-radius:10px;padding:14px;border-top:5px solid var(--rojo)}
+  .base-box.desv{border-top-color:var(--morado)}
+  .base-box h3{margin:0;font-size:15px}
+  .consulta-bloque{margin-top:8px;padding:8px 10px;border-radius:8px;background:var(--gris);border-left:4px solid var(--rojo)}
+  .consulta-bloque.desv{border-left-color:var(--morado)}
+  tr.pps td{background:#FFF6F7} tr.desv td{background:#F7F2FC}
+  .tab.activa.t-desv{background:var(--morado)} .tab.activa.t-pps{background:var(--rojo)}
+  .barra{display:flex;height:14px;border-radius:7px;overflow:hidden;background:#E8EDF3;margin-top:4px}
+  .barra span{display:block;height:100%}
+  .leyenda{font-size:12px;color:var(--suave);margin-top:6px;display:flex;gap:12px;flex-wrap:wrap;align-items:center}
+  .leyenda i{display:inline-block;width:10px;height:10px;border-radius:2px;margin-right:-8px}
+  .nav{display:flex;gap:4px;background:var(--azul-osc);padding:0 20px}
+  .nav button{background:transparent;color:#C9D8EA;border-radius:0;padding:11px 16px;border-bottom:3px solid transparent}
+  .nav button.activa{color:#fff;border-bottom-color:var(--amarillo)}
+  #vista-dashboard{max-width:1250px}
+  .filtros label{font-size:13.5px;display:flex;align-items:center;gap:6px}
+  input[type=date],select{font:inherit;padding:8px 10px;border:1px solid var(--borde);border-radius:8px;background:#fff}
+  .rapidos{display:flex;gap:6px;flex-wrap:wrap}
+  .rapidos .btn-sec{padding:7px 11px;font-size:13px}
+  .grid2{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px}
+  .grid2 .card{margin-bottom:0} .grid2 .ancho{grid-column:1/-1}
+  @media(max-width:800px){.grid2{grid-template-columns:1fr}}
+  .grid2 + .card{margin-top:16px}
+  .chart-box{position:relative;height:260px}
+  .btn-mini{background:transparent;padding:2px 6px;font-size:14px}
+  .btn-mini:hover{background:#FDE7EA}
+  #kpis .stat{background:#fff;border:1px solid var(--borde)}
+  #modal{position:fixed;inset:0;background:rgba(0,0,0,.45);display:flex;align-items:center;justify-content:center;z-index:50}
+  #modal.oculto{display:none}
+  .modal-gen{position:fixed;inset:0;background:rgba(0,0,0,.45);display:flex;align-items:center;justify-content:center;z-index:55}
+  .modal-gen.oculto{display:none}
+  .modal-gen .caja{background:#fff;border-radius:12px;padding:20px}
+  .modal-gen h3{margin:0 0 8px}
+  .sync{font-size:13px;color:var(--suave);flex:1;min-width:240px}
+  #modal .caja{background:#fff;border-radius:12px;padding:20px;width:min(360px,92vw)}
+  #modal h3{margin:0 0 8px}
+  #toast{position:fixed;bottom:18px;left:50%;transform:translateX(-50%);background:var(--texto);color:#fff;padding:10px 16px;border-radius:8px;font-size:14px;opacity:0;transition:.2s;pointer-events:none;z-index:60}
+  #toast.ver{opacity:1}
+  footer{text-align:center;font-size:12px;color:var(--suave);padding:10px 0 24px}
+</style>
+</head>
+<body>
+<header>
+  <div class="escudo">PPS</div>
+  <div>
+    <h1>Depuración de Bloqueados</h1>
+    <p>Cruce por RUT de las planillas de People contra Bloqueados PPS y Desvinculados</p>
+  </div>
+</header>
+<nav class="nav"><button class="activa" data-vista="depurar">🧹 Depurar planillas</button><button data-vista="dashboard">📊 Dashboard histórico</button></nav>
+
+<main id="vista-depurar" class="vista">
+  <!-- PASO 1: BASES -->
+  <section class="card">
+    <h2><span class="paso">1</span> Bases de verificación</h2>
+    <p class="sub">Descarga cada base desde Google Sheets (<i>Archivo → Descargar → Microsoft Excel .xlsx</i>) y súbela en su recuadro. Son <b>dos bases independientes</b>: se guardan, actualizan y borran por separado, y nunca se mezclan.</p>
+    <div class="bases">
+      <div class="base-box pps">
+        <h3>🛑 Bloqueados PPS</h3>
+        <div class="stats" id="stats_pps"></div>
+        <div class="modo">
+          <label><input type="radio" name="modo_pps" value="reemplazar" checked> Reemplazar</label>
+          <label><input type="radio" name="modo_pps" value="agregar"> Agregar</label>
+        </div>
+        <div class="drop" id="drop_pps"><b>Arrastra la base PPS</b> o haz clic<small>RUT, Nombre, Ap. Paterno, Ap. Materno, Cargo, Validación, Fecha, Empresa</small></div>
+        <input type="file" id="file_pps" accept=".xlsx,.xls,.csv" class="oculto">
+        <button class="btn-peligro" id="borrar_pps" style="margin-top:10px">Borrar base PPS</button>
+      </div>
+      <div class="base-box desv">
+        <h3>🚪 Desvinculados</h3>
+        <div class="stats" id="stats_desv"></div>
+        <div class="modo">
+          <label><input type="radio" name="modo_desv" value="reemplazar" checked> Reemplazar</label>
+          <label><input type="radio" name="modo_desv" value="agregar"> Agregar</label>
+        </div>
+        <div class="drop" id="drop_desv"><b>Arrastra la base de desvinculados</b> o haz clic<small>Debe tener columna RUT; el resto se detecta solo (motivo, fecha, empresa…)</small></div>
+        <input type="file" id="file_desv" accept=".xlsx,.xls,.csv" class="oculto">
+        <button class="btn-peligro" id="borrar_desv" style="margin-top:10px">Borrar base desvinculados</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- CONSULTA RÁPIDA -->
+  <section class="card">
+    <h2>🔎 Consulta rápida por RUT</h2>
+    <p class="sub">Para revisar una persona puntual sin subir planilla.</p>
+    <div class="fila">
+      <input type="text" id="rutConsulta" placeholder="Ej: 12.345.678-9" style="flex:1;min-width:200px">
+      <button class="btn" id="btnConsulta">Consultar</button>
+    </div>
+    <div class="consulta-res" id="consultaRes"></div>
+  </section>
+
+  <!-- PASO 2: PLANILLAS NUEVAS -->
+  <section class="card">
+    <h2><span class="paso">2</span> Planillas de validación de People</h2>
+    <p class="sub">Sube una o varias planillas (.xlsx). Cada archivo se devuelve igual, con pestañas nuevas: <b>RESUMEN</b>, <b>BLOQUEADOS PPS</b>, <b>DESVINCULADOS</b>, <b>HABILITADOS</b> (sin registro en ninguna base) y, si hace falta, <b>REVISAR</b>.</p>
+    <div class="fila" style="margin-bottom:10px">
+      <label style="font-size:13.5px"><b>Fecha de la planilla</b> (para el historial) <input type="date" id="fechaPlanilla"></label>
+      <span class="sub" style="margin:0">Si procesas planillas antiguas, cambia la fecha antes de subirlas.</span>
+    </div>
+    <div class="drop" id="dropNuevas">
+      <b>Arrastra aquí las planillas nuevas</b> o haz clic para elegirlas
+      <small>Puedes subir varios archivos a la vez</small>
+    </div>
+    <input type="file" id="fileNuevas" accept=".xlsx,.xls,.csv" multiple class="oculto">
+    <div class="fila" style="margin-top:12px" id="accionesGlobales"></div>
+    <div id="dashboard" class="oculto" style="margin-top:16px;padding:14px;border:1px solid var(--borde);border-radius:10px;background:#FBFCFE"></div>
+    <div id="resultados"></div>
+  </section>
+
+  <footer>Los datos se procesan solo en este navegador · no se envían a ningún servidor</footer>
+</main>
+<!-- ===== VISTA DASHBOARD ===== -->
+<main id="vista-dashboard" class="vista oculto">
+  <section class="card filtros">
+    <div class="fila">
+      <label>Desde <input type="date" id="fDesde"></label>
+      <label>Hasta <input type="date" id="fHasta"></label>
+      <select id="fEmpresa"></select>
+      <div class="rapidos">
+        <button class="btn-sec" data-rango="30">Últimos 30 días</button>
+        <button class="btn-sec" data-rango="mes">Este mes</button>
+        <button class="btn-sec" data-rango="anio">Este año</button>
+        <button class="btn-sec" data-rango="todo">Todo</button>
+      </div>
+    </div>
+    <div class="fila" style="margin-top:10px">
+      <span class="sync" id="estadoSync"></span>
+      <button class="btn-sec" id="btnSync" title="Sincronizar ahora">🔄</button>
+      <button class="btn-sec" id="btnConfigSheet">⚙️ Google Sheet</button>
+    </div>
+    <div class="fila" style="margin-top:10px">
+      <button class="btn" id="btnExpDash">⬇ Exportar dashboard a Excel</button>
+      <button class="btn-sec" id="btnRespaldo">💾 Respaldar historial</button>
+      <button class="btn-sec" id="btnImportar">📥 Importar respaldo</button>
+      <input type="file" id="fileRespaldo" accept=".json" class="oculto">
+    </div>
+  </section>
+
+  <div id="histVacio" class="card vacio oculto">Aún no hay planillas en el historial. Procesa una planilla en la pestaña <b>Depurar planillas</b> y aparecerá aquí.</div>
+
+  <div id="histContenido">
+    <div class="stats" id="kpis"></div>
+
+    <div class="grid2">
+      <section class="card ancho">
+        <h2 id="tituloTiempo">Detecciones por día</h2>
+        <p class="sub">Bloqueados PPS y Desvinculados se cuentan por separado; una persona en ambas bases suma en las dos barras.</p>
+        <div class="chart-box" style="height:280px"><canvas id="chTiempo"></canvas></div>
+      </section>
+      <section class="card ancho" id="boxEmp">
+        <h2>Empresas con más detecciones</h2>
+        <div class="chart-box"><canvas id="chEmp"></canvas></div>
+      </section>
+      <section class="card">
+        <h2 style="color:var(--rojo)">Motivos · Bloqueados PPS</h2>
+        <div class="chart-box"><canvas id="chMotPps"></canvas></div>
+        <div class="vacio sin-datos oculto">Sin detecciones PPS en este período.</div>
+      </section>
+      <section class="card">
+        <h2 style="color:var(--morado)">Motivos · Desvinculados</h2>
+        <div class="chart-box"><canvas id="chMotDesv"></canvas></div>
+        <div class="vacio sin-datos oculto">Sin desvinculados detectados en este período.</div>
+      </section>
+    </div>
+
+    <section class="card">
+      <h2>📄 Planillas procesadas</h2>
+      <div class="tabla-wrap" id="tablaPlanillas"></div>
+    </section>
+
+    <section class="card">
+      <h2>👤 Personas detectadas</h2>
+      <div class="fila" style="margin-bottom:10px">
+        <select id="fBaseTabla"><option value="todas">Ambas bases</option><option value="pps">Solo Bloqueados PPS</option><option value="desv">Solo Desvinculados</option></select>
+        <input type="text" id="fBuscar" placeholder="Buscar RUT, nombre, empresa o motivo" style="flex:1;min-width:200px">
+        <span class="sub" id="cuentaDet" style="margin:0"></span>
+      </div>
+      <div class="tabla-wrap" id="tablaDet"></div>
+    </section>
+
+    <section class="card">
+      <h2>🔁 Reincidentes</h2>
+      <p class="sub">Personas detectadas en más de una planilla dentro del período.</p>
+      <div class="tabla-wrap" id="tablaRein"></div>
+    </section>
+  </div>
+  <footer>Con Google Sheet conectado, el historial queda centralizado; sin conexión se guarda aquí y se sube solo al volver la red</footer>
+</main>
+
+<div id="modal" class="oculto">
+  <div class="caja">
+    <h3>Confirmar con PIN</h3>
+    <p class="sub" id="modalTxt">Ingresa el PIN de administrador.</p>
+    <input type="password" id="modalPin" inputmode="numeric" style="width:100%" placeholder="PIN">
+    <div class="fila" style="margin-top:12px;justify-content:flex-end">
+      <button class="btn-sec" id="modalCancelar">Cancelar</button>
+      <button class="btn" id="modalOk">Confirmar</button>
+    </div>
+  </div>
+</div>
+<div id="modalSheet" class="modal-gen oculto">
+  <div class="caja" style="width:min(560px,94vw)">
+    <h3>⚙️ Conexión con Google Sheet</h3>
+    <p class="sub">Pega la URL de la aplicación web de Apps Script (termina en <code>/exec</code>). Queda guardada en este navegador.</p>
+    <input type="text" id="inpUrlSheet" style="width:100%" placeholder="https://script.google.com/a/macros/ikea.cl/s/.../exec">
+    <div class="sub" id="resProbar" style="margin-top:8px;min-height:18px"></div>
+    <div class="fila" style="margin-top:12px;justify-content:space-between">
+      <button class="btn-sec" id="btnSubirLocal" title="Sube al Sheet todo el historial guardado en este navegador">⬆ Subir historial local al Sheet</button>
+      <div class="fila">
+        <button class="btn-sec" id="btnProbar">Probar</button>
+        <button class="btn-sec" id="btnCerrarSheet">Cancelar</button>
+        <button class="btn" id="btnGuardarSheet">Guardar</button>
+      </div>
+    </div>
+  </div>
+</div>
+<div id="toast"></div>
+
+<script>
+/* ========= CONFIG ========= */
+const PIN_ADMIN = '358097';
+const DB_NAME = 'pps_depuracion_bloqueados', STORE = 'kv';
+
+/* ========= UTILIDADES RUT ========= */
+// Devuelve {cuerpo, dv, valido, texto} o null si no hay RUT
+function parseRut(v){
+  if(v === null || v === undefined) return null;
+  let s = String(v).toUpperCase().replace(/[^0-9K]/g,'');
+  if(!s) return null;
+  let cuerpo, dv;
+  const crudo = String(v);
+  if(crudo.includes('-')){
+    const partes = crudo.toUpperCase().split('-');
+    cuerpo = partes[0].replace(/[^0-9]/g,'');
+    dv = (partes[1]||'').replace(/[^0-9K]/g,'').slice(0,1);
+  } else {
+    cuerpo = s.slice(0,-1).replace(/[^0-9]/g,'');
+    dv = s.slice(-1);
+  }
+  cuerpo = cuerpo.replace(/^0+/,'');
+  if(!cuerpo) return null;
+  const valido = dv !== '' && calcDV(cuerpo) === dv;
+  return {cuerpo, dv, valido, texto: formatoRut(cuerpo, dv)};
+}
+function calcDV(cuerpo){
+  let suma = 0, mult = 2;
+  for(let i = cuerpo.length-1; i >= 0; i--){
+    suma += parseInt(cuerpo[i]) * mult;
+    mult = mult === 7 ? 2 : mult+1;
+  }
+  const r = 11 - (suma % 11);
+  return r === 11 ? '0' : r === 10 ? 'K' : String(r);
+}
+function formatoRut(cuerpo, dv){
+  return cuerpo.replace(/\B(?=(\d{3})+(?!\d))/g,'.') + (dv ? '-'+dv : '');
+}
+
+/* ========= UTILIDADES GENERALES ========= */
+const norm = s => String(s??'').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/[^a-z0-9]/g,'');
+const esc = s => String(s??'').replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+function fmtCelda(v){
+  if(v instanceof Date && !isNaN(v)){
+    const d = String(v.getDate()).padStart(2,'0'), m = String(v.getMonth()+1).padStart(2,'0');
+    return `${d}-${m}-${v.getFullYear()}`;
+  }
+  return v ?? '';
+}
+function toast(msg){
+  const t = document.getElementById('toast');
+  t.textContent = msg; t.classList.add('ver');
+  clearTimeout(t._h); t._h = setTimeout(()=>t.classList.remove('ver'), 2800);
+}
+function pedirPin(texto){
+  return new Promise(res=>{
+    const m = document.getElementById('modal'), inp = document.getElementById('modalPin');
+    document.getElementById('modalTxt').textContent = texto;
+    inp.value = ''; m.classList.remove('oculto'); inp.focus();
+    const fin = ok => { m.classList.add('oculto'); ok_.onclick = can.onclick = inp.onkeydown = null; res(ok); };
+    const ok_ = document.getElementById('modalOk'), can = document.getElementById('modalCancelar');
+    ok_.onclick = () => { if(inp.value === PIN_ADMIN) fin(true); else { toast('PIN incorrecto'); inp.select(); } };
+    can.onclick = () => fin(false);
+    inp.onkeydown = e => { if(e.key==='Enter') ok_.onclick(); if(e.key==='Escape') fin(false); };
+  });
+}
+
+/* ========= ALMACENAMIENTO (IndexedDB, con respaldo en memoria) ========= */
+let memoria = {};
+function abrirDB(){
+  return new Promise((res,rej)=>{
+    try{
+      const r = indexedDB.open(DB_NAME,1);
+      r.onupgradeneeded = () => r.result.createObjectStore(STORE);
+      r.onsuccess = () => res(r.result);
+      r.onerror = () => rej(r.error);
+    }catch(e){ rej(e); }
+  });
+}
+async function guardar(k,v){
+  memoria[k] = v;
+  try{
+    const db = await abrirDB();
+    await new Promise((res,rej)=>{ const tx = db.transaction(STORE,'readwrite'); tx.objectStore(STORE).put(v,k); tx.oncomplete=res; tx.onerror=()=>rej(tx.error); });
+  }catch(e){ console.warn('No se pudo guardar en el navegador', e); toast('Aviso: la base no quedó guardada en el navegador (solo en esta sesión)'); }
+}
+async function leer(k){
+  try{
+    const db = await abrirDB();
+    return await new Promise((res,rej)=>{ const r = db.transaction(STORE).objectStore(STORE).get(k); r.onsuccess=()=>res(r.result); r.onerror=()=>rej(r.error); });
+  }catch(e){ return memoria[k]; }
+}
+
+/* ========= LECTURA DE PLANILLAS ========= */
+function leerArchivo(file){
+  return new Promise((res,rej)=>{
+    const fr = new FileReader();
+    fr.onload = e => {
+      try{ res(XLSX.read(new Uint8Array(e.target.result), {type:'array', cellDates:true})); }
+      catch(err){ rej(err); }
+    };
+    fr.onerror = () => rej(fr.error);
+    fr.readAsArrayBuffer(file);
+  });
+}
+// Busca la hoja y la fila de encabezado que contienen una columna "RUT"
+function ubicarTabla(wb){
+  for(const nombre of wb.SheetNames){
+    if(HOJAS_GENERADAS.test(nombre)) continue;
+    const aoa = XLSX.utils.sheet_to_json(wb.Sheets[nombre], {header:1, raw:true, defval:''});
+    for(let i = 0; i < Math.min(aoa.length, 25); i++){
+      const idx = aoa[i].findIndex(c => /^(rut|run|rutpersona|rutdni|rut\/dni)$/.test(norm(c)) || norm(c).startsWith('rut'));
+      if(idx >= 0){
+        const colDv = aoa[i].findIndex(c => ['dv','digito','digitoverificador'].includes(norm(c)));
+        return {hoja:nombre, aoa, filaEnc:i, colRut:idx, colDv};
+      }
+    }
+  }
+  // Sin encabezado reconocible: se asume primera hoja, primera fila encabezado, primera columna RUT
+  const nombre = wb.SheetNames[0];
+  const aoa = XLSX.utils.sheet_to_json(wb.Sheets[nombre], {header:1, raw:true, defval:''});
+  return {hoja:nombre, aoa, filaEnc:0, colRut:0, colDv:-1, supuesto:true};
+}
+// Encuentra el índice de una columna por posibles nombres
+function col(enc, opciones, porDefecto){
+  const n = enc.map(norm);
+  for(const o of opciones){ const i = n.findIndex(x => x === o); if(i>=0) return i; }
+  for(const o of opciones){ const i = n.findIndex(x => x.includes(o)); if(i>=0) return i; }
+  return porDefecto;
+}
+// Lee el RUT de una fila, uniendo la columna DV si viene separada
+const rutDeFila = (f, t) => parseRut(t.colDv >= 0 && String(f[t.colDv]).trim() !== '' && !String(f[t.colRut]).includes('-') ? `${f[t.colRut]}-${f[t.colDv]}` : f[t.colRut]);
+const filaVacia = f => f.every(c => String(c??'').trim() === '');
+
+/* ========= BASES (separadas) ========= */
+const HOJAS_GENERADAS = /^(BLOQUEADOS|BLOQUEADOS PPS|DESVINCULADOS|HABILITADOS|REVISAR|RESUMEN)$/i;
+const FUENTES = {
+  pps:  {titulo:'Bloqueados PPS', clave:'base',     hoja:'BLOQUEADOS PPS', pref:'PPS',  campoMotivo:'Validación', otraMarca:'¿También desvinculado?'},
+  desv: {titulo:'Desvinculados',  clave:'baseDesv', hoja:'DESVINCULADOS',  pref:'DESV', campoMotivo:'Motivo',     otraMarca:'¿También bloqueado PPS?'},
+};
+const OTRA = {pps:'desv', desv:'pps'};
+const baseVacia = () => ({mapa:{}, total:0, actualizada:null, archivo:''});
+const BASES = {pps:baseVacia(), desv:baseVacia()};
+
+async function cargarBase(fuente, file){
+  const modo = document.querySelector(`input[name=modo_${fuente}]:checked`).value;
+  try{
+    const wb = await leerArchivo(file);
+    const t = ubicarTabla(wb);
+    const enc = t.aoa[t.filaEnc];
+    const c = {
+      nombre: col(enc, ['nombre','nombres','nombrecompleto'], 1),
+      apPat: col(enc, ['apellidopaterno','appaterno','paterno'], -1),
+      apMat: col(enc, ['apellidomaterno','apmaterno','materno'], -1),
+      cargo: col(enc, ['cargo','puesto'], -1),
+      motivo: col(enc, ['validacion','motivo','causal','causa','estado','observacion'], -1),
+      fecha: col(enc, ['fecha','fechadesvinculacion','fechatermino','fechaegreso','fechabloqueo'], -1),
+      empresa: col(enc, ['empresa','contratista','razonsocial'], -1),
+    };
+    const v = (f,i) => i >= 0 ? f[i] : '';
+    const mapa = modo === 'agregar' ? {...BASES[fuente].mapa} : {};
+    let leidos = 0, sinRut = 0;
+    for(let i = t.filaEnc+1; i < t.aoa.length; i++){
+      const f = t.aoa[i];
+      if(filaVacia(f)) continue;
+      const r = rutDeFila(f, t);
+      if(!r){ sinRut++; continue; }
+      const reg = {
+        rut: r.texto,
+        nombre: [v(f,c.nombre), v(f,c.apPat), v(f,c.apMat)].map(x=>String(x??'').trim()).filter(Boolean).join(' '),
+        cargo: String(v(f,c.cargo)??''),
+        validacion: String(v(f,c.motivo)??''),
+        fecha: fmtCelda(v(f,c.fecha)),
+        empresa: String(v(f,c.empresa)??''),
+      };
+      (mapa[r.cuerpo] = mapa[r.cuerpo] || []);
+      if(!mapa[r.cuerpo].some(x => x.validacion===reg.validacion && x.fecha===reg.fecha)) mapa[r.cuerpo].push(reg);
+      leidos++;
+    }
+    if(!leidos){ toast('No se encontraron RUT en el archivo. Revisa que tenga una columna "RUT".'); return; }
+    BASES[fuente] = {mapa, total:Object.keys(mapa).length, actualizada:new Date().toISOString(), archivo:file.name};
+    await guardar(FUENTES[fuente].clave, BASES[fuente]);
+    pintarBase(fuente);
+    toast(`${FUENTES[fuente].titulo}: ${leidos} filas leídas${sinRut?` · ${sinRut} sin RUT omitidas`:''}`);
+    if(ARCHIVOS.length) reprocesarTodo();
+  }catch(e){ console.error(e); toast('No se pudo leer el archivo de base'); }
+}
+
+function pintarBase(fuente){
+  const B = BASES[fuente], el = document.getElementById('stats_'+fuente);
+  if(!B.total){ el.innerHTML = `<div class="aviso" style="width:100%">⚠️ Aún no hay base cargada.</div>`; return; }
+  const f = new Date(B.actualizada);
+  el.innerHTML = `
+    <div class="stat ${fuente==='pps'?'rojo':'morado'}"><div class="n">${B.total.toLocaleString('es-CL')}</div><div class="l">RUT en la base</div></div>
+    <div class="stat"><div class="n" style="font-size:13px;padding-top:6px">${f.toLocaleDateString('es-CL')} ${f.toLocaleTimeString('es-CL',{hour:'2-digit',minute:'2-digit'})}</div><div class="l" style="word-break:break-all">${esc(B.archivo)}</div></div>`;
+}
+
+/* ========= CONSULTA RÁPIDA ========= */
+function consultar(){
+  const out = document.getElementById('consultaRes');
+  const r = parseRut(document.getElementById('rutConsulta').value);
+  if(!r){ out.innerHTML = '<span class="tag naranja">Ingresa un RUT</span>'; return; }
+  if(!BASES.pps.total && !BASES.desv.total){ out.innerHTML = '<span class="tag naranja">Primero carga al menos una base</span>'; return; }
+  let html = `<b>${esc(r.texto)}</b>${r.valido?'':' <span class="tag naranja">Dígito verificador no coincide</span>'}`;
+  for(const k of ['pps','desv']){
+    const F = FUENTES[k], B = BASES[k];
+    html += `<div class="consulta-bloque ${k}"><b>${F.titulo}:</b> `;
+    if(!B.total){ html += '<span class="tag gris">Base no cargada</span></div>'; continue; }
+    const hits = B.mapa[r.cuerpo];
+    html += hits
+      ? `<span class="tag ${k==='pps'?'rojo':'morado'}">${k==='pps'?'BLOQUEADO':'DESVINCULADO'}</span>` + hits.map(h => `<div style="margin-top:5px">${esc(h.nombre)||'—'} · ${esc(h.cargo)||'—'} · ${esc(h.empresa)||'—'}<br><span style="color:var(--suave)">${F.campoMotivo}: ${esc(h.validacion)||'—'} · Fecha: ${esc(h.fecha)||'—'}</span></div>`).join('')
+      : '<span class="tag verde">Sin registro</span>';
+    html += '</div>';
+  }
+  out.innerHTML = html;
+}
+
+/* ========= PROCESO DE PLANILLAS NUEVAS ========= */
+let ARCHIVOS = [];
+
+function procesar(item){
+  const t = ubicarTabla(item.wb);
+  const enc = t.aoa[t.filaEnc];
+  const colEmp = col(enc, ['empresa','contratista','razonsocial'], -1);
+  const cN = col(enc, ['nombre','nombres','nombrecompleto'], -1), cP = col(enc, ['apellidopaterno','appaterno','paterno'], -1), cM = col(enc, ['apellidomaterno','apmaterno','materno'], -1);
+  const nombreFila = f => [cN,cP,cM].filter(i=>i>=0).map(i=>String(f[i]??'').trim()).filter(Boolean).join(' ');
+  const R = {hoja:t.hoja, enc, colEmp, supuesto:t.supuesto, pps:[], desv:[], habilitados:[], revisar:[], ambos:0, total:0, empresas:{}};
+  const vistos = {};
+  for(let i = t.filaEnc+1; i < t.aoa.length; i++){
+    const f = t.aoa[i].slice(0, enc.length);
+    while(f.length < enc.length) f.push('');
+    if(filaVacia(f)) continue;
+    R.total++;
+    const emp = colEmp >= 0 ? (String(f[colEmp]).trim() || '(sin empresa)') : '(sin columna empresa)';
+    const E = R.empresas[emp] = R.empresas[emp] || {total:0, pps:0, desv:0, ambos:0, hab:0, rev:0};
+    E.total++;
+    const r = rutDeFila(f, t);
+    if(!r){ R.revisar.push({fila:f, motivo:'RUT vacío o ilegible'}); E.rev++; continue; }
+    const dup = vistos[r.cuerpo] ? `Duplicado en la planilla (fila ${vistos[r.cuerpo]})` : '';
+    vistos[r.cuerpo] = vistos[r.cuerpo] || (i+1);
+    const hits = {pps: BASES.pps.mapa[r.cuerpo], desv: BASES.desv.mapa[r.cuerpo]};
+    for(const k of ['pps','desv']){
+      const h = hits[k]; if(!h) continue;
+      const u = h[h.length-1];
+      R[k].push({fila:f, extra:[
+        h.map(x=>x.validacion).filter(Boolean).join(' | '),
+        h.map(x=>x.fecha).filter(Boolean).join(' | '),
+        u.empresa, u.cargo, u.nombre,
+        hits[OTRA[k]] ? 'SÍ' : ''
+      ], rut:r.texto, cuerpo:r.cuerpo, nom:nombreFila(f), emp:(colEmp>=0?String(f[colEmp]).trim():'')||'(sin empresa)'});
+      E[k]++;
+    }
+    if(hits.pps && hits.desv){ R.ambos++; E.ambos++; }
+    if(hits.pps || hits.desv){
+      if(!r.valido) R.revisar.push({fila:f, motivo:'Dígito verificador incorrecto (además tiene registro en una base)'});
+    } else if(!r.valido){
+      R.revisar.push({fila:f, motivo:'Dígito verificador incorrecto: verificar RUT antes de habilitar'}); E.rev++;
+    } else {
+      R.habilitados.push({fila:f}); E.hab++;
+      if(dup) R.revisar.push({fila:f, motivo:dup});
+    }
+  }
+  item.res = R;
+  item.vista = item.vista || 'pps';
+}
+
+function encExtra(k){
+  const p = FUENTES[k].pref;
+  return [`${p} · ${FUENTES[k].campoMotivo}`, `${p} · Fecha`, `${p} · Empresa`, `${p} · Cargo`, `${p} · Nombre en base`, FUENTES[k].otraMarca];
+}
+
+function filasResumen(R, nombre){
+  const f = [
+    ['RESUMEN DE DEPURACIÓN'], ['Archivo', nombre], ['Fecha de proceso', fmtCelda(new Date())],
+    ['Base Bloqueados PPS', BASES.pps.archivo || 'no cargada', BASES.pps.actualizada ? 'cargada '+fmtCelda(new Date(BASES.pps.actualizada)) : ''],
+    ['Base Desvinculados', BASES.desv.archivo || 'no cargada', BASES.desv.actualizada ? 'cargada '+fmtCelda(new Date(BASES.desv.actualizada)) : ''],
+    [],
+    ['Indicador','Cantidad'],
+    ['Personas en la planilla', R.total],
+    ['Bloqueados PPS', R.pps.length],
+    ['Desvinculados', R.desv.length],
+    ['En ambas bases', R.ambos],
+    ['Habilitados (sin registro en ninguna base)', R.habilitados.length],
+    ['Para revisar', R.revisar.length],
+    [],
+    ['Empresa','Total','Bloqueados PPS','Desvinculados','En ambas','Habilitados','Revisar'],
+  ];
+  Object.entries(R.empresas).sort((a,b)=>b[1].total-a[1].total).forEach(([e,v]) => f.push([e, v.total, v.pps, v.desv, v.ambos, v.hab, v.rev]));
+  return f;
+}
+
+function construirLibro(item){
+  const R = item.res;
+  const wb = XLSX.utils.book_new();
+  for(const n of item.wb.SheetNames){
+    if(HOJAS_GENERADAS.test(n)) continue;
+    XLSX.utils.book_append_sheet(wb, item.wb.Sheets[n], n);
+  }
+  const anchos = filas => { const m = Math.max(...filas.map(f=>f.length)); return Array.from({length:m},(_,ci) => ({wch: Math.min(45, Math.max(10, ...filas.map(f => String(fmtCelda(f[ci]??'')).length+2)))})); };
+  const hoja = (filas, filtro=true) => { const ws = XLSX.utils.aoa_to_sheet(filas, {cellDates:true, dateNF:'dd-mm-yyyy'}); ws['!cols'] = anchos(filas); if(filtro && ws['!ref']) ws['!autofilter'] = {ref: ws['!ref']}; return ws; };
+
+  XLSX.utils.book_append_sheet(wb, hoja(filasResumen(R, item.nombre), false), 'RESUMEN');
+  for(const k of ['pps','desv'])
+    XLSX.utils.book_append_sheet(wb, hoja([[...R.enc, ...encExtra(k)], ...R[k].map(b => [...b.fila, ...b.extra])]), FUENTES[k].hoja);
+  XLSX.utils.book_append_sheet(wb, hoja([R.enc, ...R.habilitados.map(h => h.fila)]), 'HABILITADOS');
+  if(R.revisar.length) XLSX.utils.book_append_sheet(wb, hoja([[...R.enc, 'Motivo revisión'], ...R.revisar.map(r => [...r.fila, r.motivo])]), 'REVISAR');
+  return wb;
+}
+
+function nombreSalida(nombre){
+  const base = nombre.replace(/\.(xlsx|xls|csv)$/i,'');
+  const h = new Date(), p = n => String(n).padStart(2,'0');
+  return `${base}_DEPURADO_${h.getFullYear()}${p(h.getMonth()+1)}${p(h.getDate())}.xlsx`;
+}
+function descargar(item){ XLSX.writeFile(construirLibro(item), nombreSalida(item.nombre), {cellDates:true}); }
+
+async function cargarNuevas(files){
+  if(!BASES.pps.total && !BASES.desv.total){ toast('Primero carga al menos una base (paso 1)'); return; }
+  for(const file of files){
+    try{
+      const item = {nombre:file.name, wb: await leerArchivo(file), fecha: document.getElementById('fechaPlanilla').value || hoyISO()};
+      procesar(item);
+      await registrarHistorial(item);
+      ARCHIVOS = ARCHIVOS.filter(a => a.nombre !== file.name);
+      ARCHIVOS.unshift(item);
+    }catch(e){ console.error(e); toast(`No se pudo leer ${file.name}`); }
+  }
+  pintarResultados();
+}
+async function reprocesarTodo(){ for(const a of ARCHIVOS){ procesar(a); await registrarHistorial(a); } pintarResultados(); }
+
+/* ========= DASHBOARD ========= */
+function tiles(R){
+  const faltan = k => !BASES[k].total ? '<div class="l" style="color:var(--naranja)">base no cargada</div>' : '';
+  return `
+    <div class="stat"><div class="n">${R.total}</div><div class="l">Personas en planilla(s)</div></div>
+    <div class="stat rojo"><div class="n">${R.pps}</div><div class="l">Bloqueados PPS</div>${faltan('pps')}</div>
+    <div class="stat morado"><div class="n">${R.desv}</div><div class="l">Desvinculados</div>${faltan('desv')}</div>
+    <div class="stat"><div class="n" style="color:#7A2E3A">${R.ambos}</div><div class="l">En ambas bases</div></div>
+    <div class="stat verde"><div class="n">${R.hab}</div><div class="l">Habilitados</div></div>
+    ${R.rev?`<div class="stat naranja"><div class="n">${R.rev}</div><div class="l">Para revisar</div></div>`:''}`;
+}
+function tablaEmpresas(emp){
+  const filas = Object.entries(emp).sort((a,b)=>b[1].total-a[1].total);
+  if(filas.length <= 1 && /^\(sin columna/.test(filas[0]?.[0]||'')) return '';
+  return `<div class="tabla-wrap" style="max-height:260px;border:1px solid var(--borde);border-radius:8px;margin-top:6px"><table>
+    <thead><tr><th>Empresa</th><th>Total</th><th style="color:var(--rojo)">Bloq. PPS</th><th style="color:var(--morado)">Desvinculados</th><th>En ambas</th><th style="color:var(--verde)">Habilitados</th><th style="color:var(--naranja)">Revisar</th></tr></thead>
+    <tbody>${filas.map(([e,v]) => `<tr><td>${esc(e)}</td><td>${v.total}</td><td>${v.pps||''}</td><td>${v.desv||''}</td><td>${v.ambos||''}</td><td>${v.hab||''}</td><td>${v.rev||''}</td></tr>`).join('')}</tbody></table></div>`;
+}
+function pintarDashboard(){
+  const el = document.getElementById('dashboard');
+  if(!ARCHIVOS.length){ el.classList.add('oculto'); return; }
+  el.classList.remove('oculto');
+  const T = {total:0, pps:0, desv:0, ambos:0, hab:0, rev:0}, emp = {};
+  for(const a of ARCHIVOS){
+    const R = a.res;
+    T.total += R.total; T.pps += R.pps.length; T.desv += R.desv.length; T.ambos += R.ambos; T.hab += R.habilitados.length; T.rev += R.revisar.length;
+    for(const [e,v] of Object.entries(R.empresas)){ const x = emp[e] = emp[e] || {total:0,pps:0,desv:0,ambos:0,hab:0,rev:0}; for(const k in v) x[k] += v[k]; }
+  }
+  const pct = (n) => T.total ? Math.round(n*100/T.total) : 0;
+  el.innerHTML = `
+    <h2 style="margin:0 0 4px;font-size:16px;color:var(--azul-osc)">📊 Dashboard ${ARCHIVOS.length>1?`· ${ARCHIVOS.length} planillas`:''}</h2>
+    <p class="sub">Cada base se verifica por separado: una persona puede aparecer en ambas columnas.</p>
+    <div class="stats">${tiles(T)}</div>
+    <div class="barra" title="Distribución">
+      <span style="width:${pct(T.pps - T.ambos)}%;background:var(--rojo)"></span>
+      <span style="width:${pct(T.ambos)}%;background:#7A2E3A"></span>
+      <span style="width:${pct(T.desv - T.ambos)}%;background:var(--morado)"></span>
+      <span style="width:${pct(T.hab)}%;background:var(--verde)"></span>
+    </div>
+    <div class="leyenda"><i style="background:var(--rojo)"></i>Solo PPS <i style="background:#7A2E3A"></i>Ambas <i style="background:var(--morado)"></i>Solo desvinculado <i style="background:var(--verde)"></i>Habilitado</div>
+    ${tablaEmpresas(emp) ? '<h3 style="font-size:14px;margin:14px 0 0;color:var(--azul-osc)">Por empresa</h3>'+tablaEmpresas(emp) : ''}`;
+}
+
+function pintarResultados(){
+  pintarDashboard();
+  const cont = document.getElementById('resultados');
+  const glob = document.getElementById('accionesGlobales');
+  glob.innerHTML = ARCHIVOS.length > 1
+    ? `<button class="btn-amarillo" id="btnTodos">⬇ Descargar los ${ARCHIVOS.length} archivos depurados</button><button class="btn-sec" id="btnLimpiar">Limpiar resultados</button>`
+    : ARCHIVOS.length ? `<button class="btn-sec" id="btnLimpiar">Limpiar resultados</button>` : '';
+  const bt = document.getElementById('btnTodos');
+  if(bt) bt.onclick = () => ARCHIVOS.forEach((a,i) => setTimeout(()=>descargar(a), i*400));
+  const bl = document.getElementById('btnLimpiar');
+  if(bl) bl.onclick = () => { ARCHIVOS = []; pintarResultados(); };
+
+  cont.innerHTML = ARCHIVOS.map((a, idx) => {
+    const R = a.res;
+    const vistas = {pps:`Bloqueados PPS (${R.pps.length})`, desv:`Desvinculados (${R.desv.length})`, habilitados:`Habilitados (${R.habilitados.length})`};
+    if(R.revisar.length) vistas.revisar = `Revisar (${R.revisar.length})`;
+    vistas.empresas = 'Por empresa';
+    return `
+    <div class="resultado">
+      <div class="res-head">
+        <h3>📄 ${esc(a.nombre)} <span style="font-weight:400;color:var(--suave);font-size:12.5px">· hoja "${esc(R.hoja)}"</span></h3>
+        <button class="btn" data-dl="${idx}">⬇ Descargar depurado</button>
+      </div>
+      <div style="padding:0 14px">
+        <div class="stats">${tiles({total:R.total, pps:R.pps.length, desv:R.desv.length, ambos:R.ambos, hab:R.habilitados.length, rev:R.revisar.length})}</div>
+        ${R.supuesto?`<div class="aviso">No encontré una columna llamada "RUT"; usé la primera columna. Revisa el resultado.</div>`:''}
+      </div>
+      <div class="tabs">${Object.entries(vistas).map(([k,l]) => `<button class="tab ${a.vista===k?'activa':''} t-${k}" data-idx="${idx}" data-vista="${k}">${l}</button>`).join('')}</div>
+      <div class="tabla-wrap">${tablaHTML(a)}</div>
+    </div>`;
+  }).join('');
+  cont.querySelectorAll('[data-dl]').forEach(b => b.onclick = () => descargar(ARCHIVOS[+b.dataset.dl]));
+  cont.querySelectorAll('.tab').forEach(b => b.onclick = () => { ARCHIVOS[+b.dataset.idx].vista = b.dataset.vista; pintarResultados(); });
+}
+
+function tablaHTML(a){
+  const R = a.res;
+  if(a.vista === 'empresas') return tablaEmpresas(R.empresas) || '<div class="vacio">La planilla no tiene columna "Empresa".</div>';
+  let enc, filas, clase = '';
+  if(a.vista === 'pps' || a.vista === 'desv'){ enc = [...R.enc, ...encExtra(a.vista)]; filas = R[a.vista].map(b => [...b.fila, ...b.extra]); clase = a.vista; }
+  else if(a.vista === 'habilitados'){ enc = R.enc; filas = R.habilitados.map(h => h.fila); }
+  else { enc = [...R.enc, 'Motivo revisión']; filas = R.revisar.map(x => [...x.fila, x.motivo]); }
+  if(!filas.length){
+    const msg = {pps: BASES.pps.total ? '✅ Nadie de esta planilla está en Bloqueados PPS.' : 'Base Bloqueados PPS no cargada.',
+                 desv: BASES.desv.total ? '✅ Nadie de esta planilla está en Desvinculados.' : 'Base Desvinculados no cargada.'}[a.vista] || 'Sin registros.';
+    return `<div class="vacio">${msg}</div>`;
+  }
+  return `<table><thead><tr>${enc.map(h=>`<th>${esc(fmtCelda(h))}</th>`).join('')}</tr></thead><tbody>${
+    filas.map(f => `<tr class="${clase}">${f.map(c=>`<td>${esc(fmtCelda(c))}</td>`).join('')}</tr>`).join('')
+  }</tbody></table>`;
+}
+
+/* ========= HISTORIAL ========= */
+let HIST = [];
+const hoyISO = () => { const d = new Date(), p = n => String(n).padStart(2,'0'); return `${d.getFullYear()}-${p(d.getMonth()+1)}-${p(d.getDate())}`; };
+const isoAFecha = s => s ? s.split('-').reverse().join('-') : '';
+
+async function registrarHistorial(item){
+  const R = item.res;
+  const detectados = [];
+  for(const k of ['pps','desv']) for(const b of R[k])
+    detectados.push({rut:b.rut, cuerpo:b.cuerpo, nombre:b.nom, empresa:b.emp, base:k, motivo:b.extra[0], fechaBase:b.extra[1], enAmbas: b.extra[5]==='SÍ'});
+  const reg = {
+    id: item.fecha + '|' + item.nombre,
+    fecha: item.fecha, procesado: new Date().toISOString(), archivo: item.nombre,
+    total: R.total, pps: R.pps.length, desv: R.desv.length, ambos: R.ambos, hab: R.habilitados.length, rev: R.revisar.length,
+    basePps: !!BASES.pps.total, baseDesv: !!BASES.desv.total,
+    empresas: R.empresas, detectados
+  };
+  HIST = HIST.filter(h => h.id !== reg.id);
+  HIST.push(reg);
+  HIST.sort((a,b) => a.fecha.localeCompare(b.fecha) || a.archivo.localeCompare(b.archivo));
+  await guardar('historial', HIST);
+  await encolar([reg.id]);
+}
+
+/* ========= SINCRONIZACIÓN CON GOOGLE SHEET ========= */
+// Pega aquí la URL de la aplicación web de Apps Script (o configúrala desde el botón ⚙️ del dashboard)
+const URL_SHEET_POR_DEFECTO = '';
+let PENDIENTES = [];        // IDs de registros aún no confirmados en el Sheet
+let SYNC = {estado:'off', msg:'', ultima:null};
+let sincronizando = false, timerSync = null;
+
+function urlSheet(){ try{ return localStorage.getItem('pps_dep_url') || URL_SHEET_POR_DEFECTO; }catch(e){ return URL_SHEET_POR_DEFECTO; } }
+function setUrlSheet(u){ try{ localStorage.setItem('pps_dep_url', u.trim()); }catch(e){} }
+
+function jsonp(params, timeout=20000){
+  return new Promise((res, rej) => {
+    const url = urlSheet(); if(!url) return rej(new Error('Sin URL'));
+    const cb = 'cb_' + Date.now() + '_' + Math.floor(Math.random()*1e6);
+    const s = document.createElement('script');
+    const fin = () => { delete window[cb]; s.remove(); clearTimeout(t); };
+    const t = setTimeout(() => { fin(); rej(new Error('Tiempo de espera agotado')); }, timeout);
+    window[cb] = data => { fin(); res(data); };
+    s.onerror = () => { fin(); rej(new Error('No se pudo conectar')); };
+    s.src = url + (url.includes('?')?'&':'?') + new URLSearchParams({...params, callback:cb, _:Date.now()});
+    document.head.appendChild(s);
+  });
+}
+
+function pintarSync(){
+  const el = document.getElementById('estadoSync'); if(!el) return;
+  const n = PENDIENTES.length;
+  const txt = {
+    off:  '⚪ Sin Google Sheet configurado · historial solo en este navegador',
+    ok:   `🟢 Conectado al Google Sheet${SYNC.ultima?` · sincronizado ${SYNC.ultima.toLocaleTimeString('es-CL',{hour:'2-digit',minute:'2-digit'})}`:''}`,
+    sync: '🔄 Sincronizando…',
+    err:  `🔴 Sin conexión con el Google Sheet${SYNC.msg?` (${SYNC.msg})`:''}`
+  }[SYNC.estado];
+  el.innerHTML = esc(txt) + (n ? ` · <b style="color:var(--naranja)">${n} pendiente${n>1?'s':''} de subir</b>` : '');
+}
+async function guardarPendientes(){ await guardar('pendientes', PENDIENTES); pintarSync(); }
+async function encolar(ids){
+  for(const id of ids) if(!PENDIENTES.includes(id)) PENDIENTES.push(id);
+  await guardarPendientes();
+  sincronizar();
+}
+
+// Sube los pendientes (POST no-cors) y luego confirma leyendo el Sheet (JSONP)
+async function sincronizar(){
+  if(!urlSheet()){ SYNC.estado = 'off'; pintarSync(); return; }
+  if(sincronizando) return;
+  sincronizando = true; SYNC.estado = 'sync'; pintarSync();
+  try{
+    // Primera conexión a este Sheet desde este navegador: sube todo el historial local para no perderlo
+    const marca = 'pps_dep_init_' + urlSheet();
+    let primera = false; try{ primera = !localStorage.getItem(marca); }catch(e){}
+    if(primera){
+      HIST.forEach(h => { if(!PENDIENTES.includes(h.id)) PENDIENTES.push(h.id); });
+      await guardar('pendientes', PENDIENTES);
+      try{ localStorage.setItem(marca, '1'); }catch(e){}
+    }
+    const regs = PENDIENTES.map(id => HIST.find(h => h.id === id)).filter(Boolean);
+    PENDIENTES = PENDIENTES.filter(id => HIST.some(h => h.id === id)); // descarta pendientes ya borrados
+    for(let i = 0; i < regs.length; i += 5){
+      await fetch(urlSheet(), {method:'POST', mode:'no-cors', headers:{'Content-Type':'text/plain;charset=utf-8'},
+        body: JSON.stringify({accion:'guardar', registros: regs.slice(i, i+5)})});
+    }
+    await traerDelSheet();
+  }catch(e){
+    console.warn(e); SYNC.estado = 'err'; SYNC.msg = e.message;
+  }finally{
+    sincronizando = false; pintarSync();
+    clearTimeout(timerSync);
+    if(PENDIENTES.length || SYNC.estado === 'err') timerSync = setTimeout(sincronizar, 60000);
+  }
+}
+
+// El Sheet es la fuente oficial: se toma su historial y se conservan solo los pendientes locales
+async function traerDelSheet(){
+  const r = await jsonp({accion:'listar'});
+  if(!r || !r.ok) throw new Error(r && r.error || 'Respuesta inválida');
+  const remoto = r.historial || [];
+  const enSheet = new Set(remoto.map(h => h.id));
+  PENDIENTES = PENDIENTES.filter(id => !enSheet.has(id));
+  const locales = HIST.filter(h => PENDIENTES.includes(h.id));
+  HIST = [...remoto.filter(h => !PENDIENTES.includes(h.id)), ...locales]
+    .sort((a,b) => a.fecha.localeCompare(b.fecha) || a.archivo.localeCompare(b.archivo));
+  await guardar('historial', HIST);
+  await guardarPendientes();
+  SYNC.estado = 'ok'; SYNC.msg = ''; SYNC.ultima = new Date();
+  if(!document.getElementById('vista-dashboard').classList.contains('oculto')) pintarHistorico();
+}
+
+function abrirConfigSheet(){
+  const m = document.getElementById('modalSheet');
+  document.getElementById('inpUrlSheet').value = urlSheet();
+  document.getElementById('resProbar').textContent = '';
+  m.classList.remove('oculto');
+}
+async function probarSheet(){
+  const out = document.getElementById('resProbar');
+  const prev = urlSheet(); setUrlSheet(document.getElementById('inpUrlSheet').value);
+  out.textContent = 'Probando…';
+  try{ const r = await jsonp({accion:'ping'}, 15000); out.innerHTML = r && r.ok ? '🟢 Conexión correcta' : '🔴 Respuesta inesperada'; }
+  catch(e){ out.textContent = '🔴 ' + e.message + '. Revisa la URL, que la implementación esté publicada y que tengas sesión iniciada con tu cuenta ikea.cl.'; }
+  setUrlSheet(prev);
+}
+
+/* ========= DASHBOARD HISTÓRICO ========= */
+const COL = {pps:'#C8102E', desv:'#6B3FA0', hab:'#0A8A4B', ambos:'#7A2E3A', rev:'#E07B00'};
+const CHARTS = {};
+let FILTRO = {desde:'', hasta:'', empresa:'', baseTabla:'todas', buscar:''};
+
+function histFiltrado(){
+  return HIST.filter(h => (!FILTRO.desde || h.fecha >= FILTRO.desde) && (!FILTRO.hasta || h.fecha <= FILTRO.hasta));
+}
+// Agrega los números de un registro, respetando el filtro de empresa
+function numsDe(h){
+  if(!FILTRO.empresa) return {total:h.total, pps:h.pps, desv:h.desv, ambos:h.ambos, hab:h.hab, rev:h.rev};
+  const e = h.empresas[FILTRO.empresa] || {total:0,pps:0,desv:0,ambos:0,hab:0,rev:0};
+  return {...e};
+}
+function detDe(h){ return FILTRO.empresa ? h.detectados.filter(d => (d.empresa||'(sin empresa)') === FILTRO.empresa) : h.detectados; }
+
+function rangoRapido(tipo){
+  const d = new Date(), p = n => String(n).padStart(2,'0'), iso = x => `${x.getFullYear()}-${p(x.getMonth()+1)}-${p(x.getDate())}`;
+  if(tipo==='todo'){ FILTRO.desde=''; FILTRO.hasta=''; }
+  if(tipo==='mes'){ FILTRO.desde = `${d.getFullYear()}-${p(d.getMonth()+1)}-01`; FILTRO.hasta = iso(d); }
+  if(tipo==='30'){ const a = new Date(d); a.setDate(a.getDate()-29); FILTRO.desde = iso(a); FILTRO.hasta = iso(d); }
+  if(tipo==='anio'){ FILTRO.desde = `${d.getFullYear()}-01-01`; FILTRO.hasta = iso(d); }
+  document.getElementById('fDesde').value = FILTRO.desde;
+  document.getElementById('fHasta').value = FILTRO.hasta;
+  pintarHistorico();
+}
+
+function grafico(id, config){
+  if(typeof Chart === 'undefined') return;
+  if(CHARTS[id]) CHARTS[id].destroy();
+  const ctx = document.getElementById(id);
+  if(ctx) CHARTS[id] = new Chart(ctx, config);
+}
+const opcBase = (horizontal) => ({
+  responsive:true, maintainAspectRatio:false, indexAxis: horizontal ? 'y' : 'x',
+  interaction:{mode:'index', intersect:false},
+  plugins:{legend:{position:'top', align:'start', labels:{boxWidth:12, boxHeight:12, color:'#1C2430', font:{size:12}}},
+           tooltip:{backgroundColor:'#1C2430', padding:10, boxPadding:4}},
+  scales:{
+    x:{grid:{display:horizontal, color:'#EEF1F5'}, ticks:{color:'#5B6573', precision:0}, border:{display:false}},
+    y:{grid:{display:!horizontal, color:'#EEF1F5'}, ticks:{color:'#5B6573', precision:0}, border:{display:false}, beginAtZero:true}
+  }
+});
+const barra = (label, data, color) => ({label, data, backgroundColor:color, borderRadius:4, borderSkipped:'start', maxBarThickness:28, categoryPercentage:.7, barPercentage:.9, borderColor:'#fff', borderWidth:{left:1,right:1}});
+
+function topMotivos(dets, base, n=8){
+  const m = {};
+  dets.filter(d => d.base===base).forEach(d => { const k = (d.motivo||'(sin motivo)').split(' | ')[0].trim() || '(sin motivo)'; m[k] = (m[k]||0)+1; });
+  return Object.entries(m).sort((a,b)=>b[1]-a[1]).slice(0,n);
+}
+
+function pintarHistorico(){
+  const H = histFiltrado();
+  // Selector de empresas (de todo el historial filtrado por fecha)
+  const empresas = [...new Set(H.flatMap(h => Object.keys(h.empresas)))].sort();
+  const sel = document.getElementById('fEmpresa');
+  sel.innerHTML = '<option value="">Todas las empresas</option>' + empresas.map(e => `<option ${e===FILTRO.empresa?'selected':''}>${esc(e)}</option>`).join('');
+  if(FILTRO.empresa && !empresas.includes(FILTRO.empresa)) FILTRO.empresa = '';
+
+  const vacio = document.getElementById('histVacio'), cont = document.getElementById('histContenido');
+  if(!HIST.length){ vacio.classList.remove('oculto'); cont.classList.add('oculto'); return; }
+  vacio.classList.add('oculto'); cont.classList.remove('oculto');
+
+  // KPIs
+  const T = {plan:H.length, total:0, pps:0, desv:0, ambos:0, hab:0, rev:0};
+  H.forEach(h => { const n = numsDe(h); for(const k of ['total','pps','desv','ambos','hab','rev']) T[k] += n[k]; });
+  const pct = n => T.total ? (n*100/T.total).toFixed(1).replace('.',',') + '%' : '—';
+  const dets = H.flatMap(detDe);
+  const unicos = b => new Set(dets.filter(d=>d.base===b).map(d=>d.cuerpo)).size;
+  document.getElementById('kpis').innerHTML = `
+    <div class="stat azul"><div class="n">${T.plan}</div><div class="l">Planillas procesadas</div></div>
+    <div class="stat"><div class="n">${T.total.toLocaleString('es-CL')}</div><div class="l">Personas revisadas</div></div>
+    <div class="stat rojo"><div class="n">${T.pps}</div><div class="l">Bloqueados PPS · ${pct(T.pps)}</div><div class="l">${unicos('pps')} RUT distintos</div></div>
+    <div class="stat morado"><div class="n">${T.desv}</div><div class="l">Desvinculados · ${pct(T.desv)}</div><div class="l">${unicos('desv')} RUT distintos</div></div>
+    <div class="stat"><div class="n" style="color:${COL.ambos}">${T.ambos}</div><div class="l">En ambas bases</div></div>
+    <div class="stat verde"><div class="n">${T.hab.toLocaleString('es-CL')}</div><div class="l">Habilitados · ${pct(T.hab)}</div></div>
+    ${T.rev?`<div class="stat naranja"><div class="n">${T.rev}</div><div class="l">Para revisar</div></div>`:''}`;
+
+  // Serie temporal: por día si el rango es corto, por mes si es largo
+  const fechas = H.map(h=>h.fecha);
+  const dias = fechas.length ? (new Date(fechas[fechas.length-1]) - new Date(fechas[0]))/864e5 : 0;
+  const porMes = dias > 62;
+  const MES = ['ene','feb','mar','abr','may','jun','jul','ago','sep','oct','nov','dic'];
+  const clave = f => porMes ? f.slice(0,7) : f;
+  const etiqueta = k => porMes ? `${MES[+k.slice(5,7)-1]} ${k.slice(2,4)}` : `${k.slice(8,10)}-${k.slice(5,7)}`;
+  const serie = {};
+  H.forEach(h => { const k = clave(h.fecha), n = numsDe(h); const s = serie[k] = serie[k] || {pps:0,desv:0,total:0}; s.pps += n.pps; s.desv += n.desv; s.total += n.total; });
+  const ks = Object.keys(serie).sort();
+  document.getElementById('tituloTiempo').textContent = `Detecciones por ${porMes?'mes':'día'}`;
+  grafico('chTiempo', {type:'bar', data:{labels:ks.map(etiqueta), datasets:[
+    barra('Bloqueados PPS', ks.map(k=>serie[k].pps), COL.pps),
+    barra('Desvinculados', ks.map(k=>serie[k].desv), COL.desv)]},
+    options:{...opcBase(false), plugins:{...opcBase(false).plugins, tooltip:{...opcBase(false).plugins.tooltip, callbacks:{footer: it => `Personas revisadas: ${serie[ks[it[0].dataIndex]].total}`}}}}});
+
+  // Empresas
+  const emp = {};
+  H.forEach(h => Object.entries(h.empresas).forEach(([e,v]) => { if(FILTRO.empresa && e!==FILTRO.empresa) return; const x = emp[e] = emp[e]||{pps:0,desv:0,total:0}; x.pps+=v.pps; x.desv+=v.desv; x.total+=v.total; }));
+  const topEmp = Object.entries(emp).filter(([,v])=>v.pps+v.desv>0).sort((a,b)=>(b[1].pps+b[1].desv)-(a[1].pps+a[1].desv)).slice(0,10);
+  document.getElementById('boxEmp').classList.toggle('oculto', !topEmp.length);
+  document.getElementById('chEmp').parentElement.style.height = Math.max(160, topEmp.length*38+60)+'px';
+  grafico('chEmp', {type:'bar', data:{labels:topEmp.map(([e])=>e.length>28?e.slice(0,27)+'…':e), datasets:[
+    barra('Bloqueados PPS', topEmp.map(([,v])=>v.pps), COL.pps),
+    barra('Desvinculados', topEmp.map(([,v])=>v.desv), COL.desv)]}, options:opcBase(true)});
+
+  // Motivos, por separado
+  for(const [base, id, color] of [['pps','chMotPps',COL.pps],['desv','chMotDesv',COL.desv]]){
+    const top = topMotivos(dets, base);
+    const box = document.getElementById(id).parentElement;
+    box.style.height = Math.max(140, top.length*34+40)+'px';
+    box.parentElement.querySelector('.sin-datos').classList.toggle('oculto', top.length>0);
+    box.classList.toggle('oculto', !top.length);
+    const o = opcBase(true); o.plugins.legend = {display:false};
+    grafico(id, {type:'bar', data:{labels:top.map(([m])=>m.length>32?m.slice(0,31)+'…':m), datasets:[barra(base==='pps'?'Bloqueados PPS':'Desvinculados', top.map(([,n])=>n), color)]}, options:o});
+  }
+
+  // Tabla de planillas
+  document.getElementById('tablaPlanillas').innerHTML = `<table><thead><tr><th>Fecha</th><th>Archivo</th><th>Personas</th><th style="color:var(--rojo)">Bloq. PPS</th><th style="color:var(--morado)">Desvinc.</th><th>Ambas</th><th style="color:var(--verde)">Habilitados</th><th style="color:var(--naranja)">Revisar</th><th></th></tr></thead><tbody>${
+    [...H].reverse().map(h => { const n = numsDe(h); return `<tr><td>${isoAFecha(h.fecha)}</td><td title="Procesado ${new Date(h.procesado).toLocaleString('es-CL')}">${esc(h.archivo)}${!h.basePps||!h.baseDesv?` <span class="tag naranja" title="Procesada sin una de las bases">${!h.basePps?'sin base PPS':'sin base desv.'}</span>`:''}</td><td>${n.total}</td><td>${n.pps}</td><td>${n.desv}</td><td>${n.ambos}</td><td>${n.hab}</td><td>${n.rev}</td><td><button class="btn-mini" data-borrar="${esc(h.id)}" title="Eliminar del historial">🗑</button></td></tr>`; }).join('')
+  }</tbody></table>`;
+  document.querySelectorAll('[data-borrar]').forEach(b => b.onclick = () => borrarRegistro(b.dataset.borrar));
+
+  // Personas detectadas
+  pintarDetectados(H);
+
+  // Reincidentes: mismo RUT detectado en 2+ planillas
+  const rein = {};
+  H.forEach(h => detDe(h).forEach(d => { const r = rein[d.cuerpo] = rein[d.cuerpo] || {rut:d.rut, nombre:d.nombre, empresa:d.empresa, bases:new Set(), planillas:new Set(), ultima:''}; r.bases.add(d.base); r.planillas.add(h.id); if(h.fecha > r.ultima) r.ultima = h.fecha; }));
+  const R2 = Object.values(rein).filter(r => r.planillas.size > 1).sort((a,b)=>b.planillas.size-a.planillas.size);
+  document.getElementById('tablaRein').innerHTML = R2.length ? `<table><thead><tr><th>RUT</th><th>Nombre</th><th>Empresa</th><th>Base</th><th>Planillas</th><th>Última vez</th></tr></thead><tbody>${
+    R2.map(r => `<tr><td>${esc(r.rut)}</td><td>${esc(r.nombre)}</td><td>${esc(r.empresa)}</td><td>${[...r.bases].map(b=>`<span class="tag ${b==='pps'?'rojo':'morado'}">${b==='pps'?'PPS':'Desv.'}</span>`).join(' ')}</td><td><b>${r.planillas.size}</b></td><td>${isoAFecha(r.ultima)}</td></tr>`).join('')}</tbody></table>`
+    : '<div class="vacio">Nadie ha sido detectado en más de una planilla en este período.</div>';
+}
+
+function pintarDetectados(H){
+  H = H || histFiltrado();
+  const q = norm(FILTRO.buscar);
+  const filas = H.flatMap(h => detDe(h).map(d => ({...d, fecha:h.fecha, archivo:h.archivo})))
+    .filter(d => FILTRO.baseTabla==='todas' || d.base===FILTRO.baseTabla)
+    .filter(d => !q || norm(d.rut+d.nombre+d.empresa+d.motivo).includes(q))
+    .sort((a,b) => b.fecha.localeCompare(a.fecha));
+  document.getElementById('cuentaDet').textContent = `${filas.length} registro${filas.length===1?'':'s'}`;
+  document.getElementById('tablaDet').innerHTML = filas.length ? `<table><thead><tr><th>Fecha</th><th>Base</th><th>RUT</th><th>Nombre</th><th>Empresa</th><th>Motivo / validación</th><th>Fecha en base</th><th>Archivo</th></tr></thead><tbody>${
+    filas.slice(0,1000).map(d => `<tr class="${d.base}"><td>${isoAFecha(d.fecha)}</td><td><span class="tag ${d.base==='pps'?'rojo':'morado'}">${d.base==='pps'?'PPS':'Desv.'}</span>${d.enAmbas?' <span class="tag gris">ambas</span>':''}</td><td>${esc(d.rut)}</td><td>${esc(d.nombre)}</td><td>${esc(d.empresa)}</td><td>${esc(d.motivo)}</td><td>${esc(d.fechaBase)}</td><td>${esc(d.archivo)}</td></tr>`).join('')}</tbody></table>${filas.length>1000?'<div class="vacio">Mostrando 1.000; exporta a Excel para ver todos.</div>':''}`
+    : '<div class="vacio">Sin detecciones para este filtro.</div>';
+}
+
+async function borrarRegistro(id){
+  const h = HIST.find(x => x.id === id); if(!h) return;
+  if(!(await pedirPin(`Se eliminará del historial la planilla "${h.archivo}" del ${isoAFecha(h.fecha)}.`))) return;
+  if(urlSheet() && !PENDIENTES.includes(id)){
+    try{
+      const r = await jsonp({accion:'borrar', id, pin:PIN_ADMIN});
+      if(!r || !r.ok) throw new Error(r && r.error || 'error');
+    }catch(e){ toast('No se pudo borrar en el Google Sheet: ' + e.message + '. Intenta con conexión.'); return; }
+  }
+  PENDIENTES = PENDIENTES.filter(x => x !== id); await guardarPendientes();
+  HIST = HIST.filter(x => x.id !== id);
+  await guardar('historial', HIST);
+  pintarHistorico(); toast('Registro eliminado del historial');
+}
+
+function exportarDashboard(){
+  const H = histFiltrado();
+  if(!H.length){ toast('No hay datos en este período'); return; }
+  const wb = XLSX.utils.book_new();
+  const T = {total:0,pps:0,desv:0,ambos:0,hab:0,rev:0}; H.forEach(h => { const n = numsDe(h); for(const k in T) T[k]+=n[k]; });
+  const per = `${FILTRO.desde?isoAFecha(FILTRO.desde):'inicio'} a ${FILTRO.hasta?isoAFecha(FILTRO.hasta):'hoy'}`;
+  const hoja = (aoa) => { const ws = XLSX.utils.aoa_to_sheet(aoa); ws['!cols'] = (aoa.find(f=>f.length>3)||aoa[0]).map(()=>({wch:20})); return ws; };
+  XLSX.utils.book_append_sheet(wb, hoja([['DASHBOARD DEPURACIÓN · PPS IKEA CD'],['Período', per],['Empresa', FILTRO.empresa||'Todas'],[],
+    ['Indicador','Cantidad'],['Planillas procesadas',H.length],['Personas revisadas',T.total],['Bloqueados PPS',T.pps],['Desvinculados',T.desv],['En ambas bases',T.ambos],['Habilitados',T.hab],['Para revisar',T.rev]]), 'RESUMEN');
+  XLSX.utils.book_append_sheet(wb, hoja([['Fecha','Archivo','Personas','Bloqueados PPS','Desvinculados','En ambas','Habilitados','Revisar'],
+    ...H.map(h => { const n = numsDe(h); return [isoAFecha(h.fecha), h.archivo, n.total, n.pps, n.desv, n.ambos, n.hab, n.rev]; })]), 'PLANILLAS');
+  for(const [b, nom] of [['pps','DETECTADOS PPS'],['desv','DETECTADOS DESVINCULADOS']])
+    XLSX.utils.book_append_sheet(wb, hoja([['Fecha planilla','Archivo','RUT','Nombre','Empresa', b==='pps'?'Validación':'Motivo','Fecha en base','También en la otra base'],
+      ...H.flatMap(h => detDe(h).filter(d=>d.base===b).map(d => [isoAFecha(h.fecha), h.archivo, d.rut, d.nombre, d.empresa, d.motivo, d.fechaBase, d.enAmbas?'SÍ':'']))]), nom);
+  const emp = {}; H.forEach(h => Object.entries(h.empresas).forEach(([e,v]) => { const x = emp[e] = emp[e]||{total:0,pps:0,desv:0,ambos:0,hab:0,rev:0}; for(const k in x) x[k]+=v[k]||0; }));
+  XLSX.utils.book_append_sheet(wb, hoja([['Empresa','Personas','Bloqueados PPS','Desvinculados','En ambas','Habilitados','Revisar'],
+    ...Object.entries(emp).sort((a,b)=>b[1].total-a[1].total).map(([e,v]) => [e,v.total,v.pps,v.desv,v.ambos,v.hab,v.rev])]), 'POR EMPRESA');
+  XLSX.writeFile(wb, `Dashboard_Depuracion_${hoyISO()}.xlsx`);
+}
+
+function exportarRespaldo(){
+  if(!HIST.length){ toast('El historial está vacío'); return; }
+  const blob = new Blob([JSON.stringify({app:'depuracion-bloqueados', version:1, exportado:new Date().toISOString(), historial:HIST})], {type:'application/json'});
+  const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = `respaldo_historial_depuracion_${hoyISO()}.json`; a.click();
+  setTimeout(()=>URL.revokeObjectURL(a.href), 2000);
+}
+async function importarRespaldo(file){
+  try{
+    const data = JSON.parse(await file.text());
+    const lista = Array.isArray(data) ? data : data.historial;
+    if(!Array.isArray(lista)) throw new Error('formato');
+    const mapa = Object.fromEntries(HIST.map(h => [h.id, h]));
+    let nuevos = 0; lista.forEach(h => { if(h && h.id && h.fecha){ if(!mapa[h.id]) nuevos++; mapa[h.id] = h; } });
+    HIST = Object.values(mapa).sort((a,b) => a.fecha.localeCompare(b.fecha) || a.archivo.localeCompare(b.archivo));
+    await guardar('historial', HIST);
+    pintarHistorico(); toast(`Respaldo importado: ${nuevos} planilla(s) nuevas`);
+  }catch(e){ console.error(e); toast('El archivo no es un respaldo válido'); }
+}
+
+function mostrarVista(v){
+  document.querySelectorAll('.vista').forEach(x => x.classList.toggle('oculto', x.id !== 'vista-'+v));
+  document.querySelectorAll('.nav button').forEach(b => b.classList.toggle('activa', b.dataset.vista === v));
+  if(v === 'dashboard') pintarHistorico();
+}
+
+/* ========= EVENTOS ========= */
+function zona(dropId, inputId, fn){
+  const d = document.getElementById(dropId), inp = document.getElementById(inputId);
+  d.onclick = () => inp.click();
+  inp.onchange = () => { if(inp.files.length) fn([...inp.files]); inp.value=''; };
+  d.ondragover = e => { e.preventDefault(); d.classList.add('over'); };
+  d.ondragleave = () => d.classList.remove('over');
+  d.ondrop = e => { e.preventDefault(); d.classList.remove('over'); if(e.dataTransfer.files.length) fn([...e.dataTransfer.files]); };
+}
+for(const k of ['pps','desv']){
+  zona('drop_'+k, 'file_'+k, files => cargarBase(k, files[0]));
+  document.getElementById('borrar_'+k).onclick = async () => {
+    if(!BASES[k].total){ toast('No hay base guardada'); return; }
+    if(!(await pedirPin(`Se borrará la base "${FUENTES[k].titulo}" guardada en este navegador. La otra base no se toca.`))) return;
+    BASES[k] = baseVacia();
+    await guardar(FUENTES[k].clave, BASES[k]);
+    pintarBase(k); toast(`Base ${FUENTES[k].titulo} borrada`);
+    if(ARCHIVOS.length) reprocesarTodo();
+  };
+}
+zona('dropNuevas','fileNuevas', cargarNuevas);
+document.getElementById('btnConsulta').onclick = consultar;
+document.getElementById('rutConsulta').onkeydown = e => { if(e.key==='Enter') consultar(); };
+
+document.querySelectorAll('.nav button').forEach(b => b.onclick = () => mostrarVista(b.dataset.vista));
+document.getElementById('fechaPlanilla').value = hoyISO();
+document.getElementById('fDesde').onchange = e => { FILTRO.desde = e.target.value; pintarHistorico(); };
+document.getElementById('fHasta').onchange = e => { FILTRO.hasta = e.target.value; pintarHistorico(); };
+document.getElementById('fEmpresa').onchange = e => { FILTRO.empresa = e.target.value; pintarHistorico(); };
+document.getElementById('fBaseTabla').onchange = e => { FILTRO.baseTabla = e.target.value; pintarDetectados(); };
+document.getElementById('fBuscar').oninput = e => { FILTRO.buscar = e.target.value; pintarDetectados(); };
+document.querySelectorAll('[data-rango]').forEach(b => b.onclick = () => rangoRapido(b.dataset.rango));
+document.getElementById('btnExpDash').onclick = exportarDashboard;
+document.getElementById('btnSync').onclick = sincronizar;
+document.getElementById('btnConfigSheet').onclick = abrirConfigSheet;
+document.getElementById('btnProbar').onclick = probarSheet;
+document.getElementById('btnCerrarSheet').onclick = () => document.getElementById('modalSheet').classList.add('oculto');
+document.getElementById('btnGuardarSheet').onclick = () => {
+  setUrlSheet(document.getElementById('inpUrlSheet').value);
+  document.getElementById('modalSheet').classList.add('oculto');
+  toast(urlSheet() ? 'URL guardada · sincronizando…' : 'Google Sheet desconectado');
+  sincronizar();
+};
+document.getElementById('btnSubirLocal').onclick = async () => {
+  if(!HIST.length){ toast('No hay historial local para subir'); return; }
+  setUrlSheet(document.getElementById('inpUrlSheet').value);
+  if(!urlSheet()){ toast('Primero pega la URL'); return; }
+  document.getElementById('modalSheet').classList.add('oculto');
+  await encolar(HIST.map(h => h.id));
+  toast(`Subiendo ${HIST.length} planilla(s) al Google Sheet…`);
+};
+window.addEventListener('online', sincronizar);
+document.getElementById('btnRespaldo').onclick = exportarRespaldo;
+document.getElementById('btnImportar').onclick = () => document.getElementById('fileRespaldo').click();
+document.getElementById('fileRespaldo').onchange = e => { if(e.target.files[0]) importarRespaldo(e.target.files[0]); e.target.value=''; };
+
+(async () => {
+  const h = await leer('historial');
+  if(Array.isArray(h)) HIST = h;
+  const pend = await leer('pendientes');
+  if(Array.isArray(pend)) PENDIENTES = pend;
+  pintarSync();
+  sincronizar();
+  for(const k of ['pps','desv']){
+    const b = await leer(FUENTES[k].clave);
+    if(b && b.total) BASES[k] = b;
+    pintarBase(k);
+  }
+})();
+</script>
+</body>
+</html>
