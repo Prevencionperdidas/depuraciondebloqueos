@@ -733,7 +733,7 @@ async function registrarHistorial(item){
 
 /* ========= SINCRONIZACIÓN CON GOOGLE SHEET ========= */
 // Pega aquí la URL de la aplicación web de Apps Script (o configúrala desde el botón ⚙️ del dashboard)
-const URL_SHEET_POR_DEFECTO = '';
+const URL_SHEET_POR_DEFECTO = 'https://script.google.com/a/macros/ikea.cl/s/AKfycbyo5e2qGcd0I0DHFVgEP-wo7U3mWpeI_HXdJ_HwgvAl2uI0v0vgldNai-x_lUTyO5ACkA/exec';
 let PENDIENTES = [];        // IDs de registros aún no confirmados en el Sheet
 let SYNC = {estado:'off', msg:'', ultima:null};
 let sincronizando = false, timerSync = null;
