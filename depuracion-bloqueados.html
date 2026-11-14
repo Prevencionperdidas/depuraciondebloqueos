@@ -1,0 +1,512 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Depuración de Bloqueados · PPS IKEA CD</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+  :root{
+    --azul:#0058A3; --azul-osc:#003E72; --amarillo:#FFDB00;
+    --rojo:#C8102E; --verde:#0A8A4B; --naranja:#E07B00;
+    --gris:#F3F5F8; --borde:#D9DEE5; --texto:#1C2430; --suave:#5B6573;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;font-family:"Segoe UI",Roboto,Arial,sans-serif;background:var(--gris);color:var(--texto)}
+  header{background:var(--azul);color:#fff;padding:14px 20px;display:flex;align-items:center;gap:14px;border-bottom:5px solid var(--amarillo)}
+  .escudo{width:42px;height:42px;border-radius:8px;background:var(--amarillo);color:var(--azul);display:flex;align-items:center;justify-content:center;font-weight:800;font-size:13px}
+  header h1{margin:0;font-size:19px}
+  header p{margin:2px 0 0;font-size:12.5px;opacity:.85}
+  main{max-width:1150px;margin:0 auto;padding:18px}
+  .card{background:#fff;border:1px solid var(--borde);border-radius:12px;padding:18px;margin-bottom:16px}
+  .card h2{margin:0 0 4px;font-size:16px;color:var(--azul-osc);display:flex;align-items:center;gap:8px}
+  .paso{background:var(--azul);color:#fff;border-radius:50%;width:24px;height:24px;display:inline-flex;align-items:center;justify-content:center;font-size:13px}
+  .sub{color:var(--suave);font-size:13px;margin:0 0 12px}
+  .drop{border:2px dashed #9FB3C8;border-radius:10px;padding:22px;text-align:center;cursor:pointer;background:#FAFCFF;transition:.15s}
+  .drop:hover,.drop.over{border-color:var(--azul);background:#EEF5FC}
+  .drop b{color:var(--azul)}
+  .drop small{display:block;color:var(--suave);margin-top:4px}
+  button{font:inherit;border:0;border-radius:8px;padding:9px 14px;cursor:pointer;font-weight:600}
+  .btn{background:var(--azul);color:#fff}
+  .btn:hover{background:var(--azul-osc)}
+  .btn-amarillo{background:var(--amarillo);color:var(--azul-osc)}
+  .btn-sec{background:#E8EDF3;color:var(--texto)}
+  .btn-peligro{background:#fff;color:var(--rojo);border:1px solid var(--rojo)}
+  .fila{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+  .stats{display:flex;gap:10px;flex-wrap:wrap;margin:12px 0}
+  .stat{flex:1;min-width:140px;border-radius:10px;padding:10px 14px;background:var(--gris)}
+  .stat .n{font-size:24px;font-weight:800}
+  .stat .l{font-size:12px;color:var(--suave)}
+  .stat.rojo .n{color:var(--rojo)} .stat.verde .n{color:var(--verde)} .stat.naranja .n{color:var(--naranja)} .stat.azul .n{color:var(--azul)}
+  .modo{display:flex;gap:16px;font-size:13.5px;margin:10px 0}
+  input[type=text],input[type=password]{font:inherit;padding:9px 12px;border:1px solid var(--borde);border-radius:8px}
+  .consulta-res{margin-top:10px;font-size:14px}
+  .tag{display:inline-block;padding:3px 9px;border-radius:20px;font-size:12px;font-weight:700}
+  .tag.rojo{background:#FDE7EA;color:var(--rojo)} .tag.verde{background:#E3F5EC;color:var(--verde)} .tag.naranja{background:#FFF1DE;color:var(--naranja)}
+  .resultado{border:1px solid var(--borde);border-radius:10px;margin-top:14px;overflow:hidden}
+  .res-head{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;padding:12px 14px;background:#F7F9FC;border-bottom:1px solid var(--borde)}
+  .res-head h3{margin:0;font-size:15px;word-break:break-all}
+  .tabs{display:flex;gap:4px;padding:10px 14px 0}
+  .tab{background:#EDF1F6;color:var(--suave);border-radius:8px 8px 0 0;padding:7px 12px;font-size:13px}
+  .tab.activa{background:var(--azul);color:#fff}
+  .tabla-wrap{max-height:380px;overflow:auto;border-top:1px solid var(--borde)}
+  table{border-collapse:collapse;width:100%;font-size:12.5px}
+  th,td{padding:6px 9px;border-bottom:1px solid #EDF0F4;text-align:left;white-space:nowrap}
+  th{position:sticky;top:0;background:#fff;color:var(--azul-osc);z-index:1;border-bottom:2px solid var(--borde)}
+  tr.bloq td{background:#FFF6F7}
+  .vacio{padding:18px;text-align:center;color:var(--suave);font-size:13px}
+  .aviso{background:#FFF8D6;border:1px solid #F2D96B;border-radius:8px;padding:9px 12px;font-size:13px;margin-top:10px}
+  .oculto{display:none}
+  #modal{position:fixed;inset:0;background:rgba(0,0,0,.45);display:flex;align-items:center;justify-content:center;z-index:50}
+  #modal.oculto{display:none}
+  #modal .caja{background:#fff;border-radius:12px;padding:20px;width:min(360px,92vw)}
+  #modal h3{margin:0 0 8px}
+  #toast{position:fixed;bottom:18px;left:50%;transform:translateX(-50%);background:var(--texto);color:#fff;padding:10px 16px;border-radius:8px;font-size:14px;opacity:0;transition:.2s;pointer-events:none;z-index:60}
+  #toast.ver{opacity:1}
+  footer{text-align:center;font-size:12px;color:var(--suave);padding:10px 0 24px}
+</style>
+</head>
+<body>
+<header>
+  <div class="escudo">PPS</div>
+  <div>
+    <h1>Depuración de Bloqueados</h1>
+    <p>Cruce por RUT entre las planillas de validación de People y la base de personas bloqueadas</p>
+  </div>
+</header>
+
+<main>
+  <!-- PASO 1: BASE -->
+  <section class="card">
+    <h2><span class="paso">1</span> Base de bloqueados</h2>
+    <p class="sub">Descarga tu planilla base desde Google Sheets (<i>Archivo → Descargar → Microsoft Excel .xlsx</i>) y súbela aquí. Queda guardada en este navegador; solo la vuelves a subir cuando la actualices.</p>
+
+    <div class="stats" id="baseStats"></div>
+
+    <div class="modo">
+      <label><input type="radio" name="modoBase" value="reemplazar" checked> Reemplazar la base completa</label>
+      <label><input type="radio" name="modoBase" value="agregar"> Agregar a la base actual</label>
+    </div>
+    <div class="drop" id="dropBase">
+      <b>Arrastra aquí tu base</b> o haz clic para elegirla
+      <small>.xlsx, .xls o .csv · columnas: RUT, Nombre, Apellido Paterno, Apellido Materno, Cargo, Validación, Fecha, Empresa</small>
+    </div>
+    <input type="file" id="fileBase" accept=".xlsx,.xls,.csv" class="oculto">
+    <div class="fila" style="margin-top:12px">
+      <button class="btn-peligro" id="btnBorrarBase">Borrar base guardada</button>
+    </div>
+  </section>
+
+  <!-- CONSULTA RÁPIDA -->
+  <section class="card">
+    <h2>🔎 Consulta rápida por RUT</h2>
+    <p class="sub">Para revisar una persona puntual sin subir planilla.</p>
+    <div class="fila">
+      <input type="text" id="rutConsulta" placeholder="Ej: 12.345.678-9" style="flex:1;min-width:200px">
+      <button class="btn" id="btnConsulta">Consultar</button>
+    </div>
+    <div class="consulta-res" id="consultaRes"></div>
+  </section>
+
+  <!-- PASO 2: PLANILLAS NUEVAS -->
+  <section class="card">
+    <h2><span class="paso">2</span> Planillas de validación de People</h2>
+    <p class="sub">Sube una o varias planillas (descargadas como .xlsx). Cada archivo se devuelve igual, pero con pestañas nuevas: <b>BLOQUEADOS</b>, <b>HABILITADOS</b> y, si hace falta, <b>REVISAR</b> (RUT vacío o con dígito verificador incorrecto).</p>
+    <div class="drop" id="dropNuevas">
+      <b>Arrastra aquí las planillas nuevas</b> o haz clic para elegirlas
+      <small>Puedes subir varios archivos a la vez</small>
+    </div>
+    <input type="file" id="fileNuevas" accept=".xlsx,.xls,.csv" multiple class="oculto">
+    <div class="fila" style="margin-top:12px" id="accionesGlobales"></div>
+    <div id="resultados"></div>
+  </section>
+
+  <footer>Los datos se procesan solo en este navegador · no se envían a ningún servidor</footer>
+</main>
+
+<div id="modal" class="oculto">
+  <div class="caja">
+    <h3>Confirmar con PIN</h3>
+    <p class="sub" id="modalTxt">Ingresa el PIN de administrador.</p>
+    <input type="password" id="modalPin" inputmode="numeric" style="width:100%" placeholder="PIN">
+    <div class="fila" style="margin-top:12px;justify-content:flex-end">
+      <button class="btn-sec" id="modalCancelar">Cancelar</button>
+      <button class="btn" id="modalOk">Confirmar</button>
+    </div>
+  </div>
+</div>
+<div id="toast"></div>
+
+<script>
+/* ========= CONFIG ========= */
+const PIN_ADMIN = '358097';
+const DB_NAME = 'pps_depuracion_bloqueados', STORE = 'kv';
+
+/* ========= UTILIDADES RUT ========= */
+// Devuelve {cuerpo, dv, valido, texto} o null si no hay RUT
+function parseRut(v){
+  if(v === null || v === undefined) return null;
+  let s = String(v).toUpperCase().replace(/[^0-9K]/g,'');
+  if(!s) return null;
+  let cuerpo, dv;
+  const crudo = String(v);
+  if(crudo.includes('-')){
+    const partes = crudo.toUpperCase().split('-');
+    cuerpo = partes[0].replace(/[^0-9]/g,'');
+    dv = (partes[1]||'').replace(/[^0-9K]/g,'').slice(0,1);
+  } else {
+    cuerpo = s.slice(0,-1).replace(/[^0-9]/g,'');
+    dv = s.slice(-1);
+  }
+  cuerpo = cuerpo.replace(/^0+/,'');
+  if(!cuerpo) return null;
+  const valido = dv !== '' && calcDV(cuerpo) === dv;
+  return {cuerpo, dv, valido, texto: formatoRut(cuerpo, dv)};
+}
+function calcDV(cuerpo){
+  let suma = 0, mult = 2;
+  for(let i = cuerpo.length-1; i >= 0; i--){
+    suma += parseInt(cuerpo[i]) * mult;
+    mult = mult === 7 ? 2 : mult+1;
+  }
+  const r = 11 - (suma % 11);
+  return r === 11 ? '0' : r === 10 ? 'K' : String(r);
+}
+function formatoRut(cuerpo, dv){
+  return cuerpo.replace(/\B(?=(\d{3})+(?!\d))/g,'.') + (dv ? '-'+dv : '');
+}
+
+/* ========= UTILIDADES GENERALES ========= */
+const norm = s => String(s??'').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/[^a-z0-9]/g,'');
+const esc = s => String(s??'').replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+function fmtCelda(v){
+  if(v instanceof Date && !isNaN(v)){
+    const d = String(v.getDate()).padStart(2,'0'), m = String(v.getMonth()+1).padStart(2,'0');
+    return `${d}-${m}-${v.getFullYear()}`;
+  }
+  return v ?? '';
+}
+function toast(msg){
+  const t = document.getElementById('toast');
+  t.textContent = msg; t.classList.add('ver');
+  clearTimeout(t._h); t._h = setTimeout(()=>t.classList.remove('ver'), 2800);
+}
+function pedirPin(texto){
+  return new Promise(res=>{
+    const m = document.getElementById('modal'), inp = document.getElementById('modalPin');
+    document.getElementById('modalTxt').textContent = texto;
+    inp.value = ''; m.classList.remove('oculto'); inp.focus();
+    const fin = ok => { m.classList.add('oculto'); ok_.onclick = can.onclick = inp.onkeydown = null; res(ok); };
+    const ok_ = document.getElementById('modalOk'), can = document.getElementById('modalCancelar');
+    ok_.onclick = () => { if(inp.value === PIN_ADMIN) fin(true); else { toast('PIN incorrecto'); inp.select(); } };
+    can.onclick = () => fin(false);
+    inp.onkeydown = e => { if(e.key==='Enter') ok_.onclick(); if(e.key==='Escape') fin(false); };
+  });
+}
+
+/* ========= ALMACENAMIENTO (IndexedDB, con respaldo en memoria) ========= */
+let memoria = {};
+function abrirDB(){
+  return new Promise((res,rej)=>{
+    try{
+      const r = indexedDB.open(DB_NAME,1);
+      r.onupgradeneeded = () => r.result.createObjectStore(STORE);
+      r.onsuccess = () => res(r.result);
+      r.onerror = () => rej(r.error);
+    }catch(e){ rej(e); }
+  });
+}
+async function guardar(k,v){
+  memoria[k] = v;
+  try{
+    const db = await abrirDB();
+    await new Promise((res,rej)=>{ const tx = db.transaction(STORE,'readwrite'); tx.objectStore(STORE).put(v,k); tx.oncomplete=res; tx.onerror=()=>rej(tx.error); });
+  }catch(e){ console.warn('No se pudo guardar en el navegador', e); toast('Aviso: la base no quedó guardada en el navegador (solo en esta sesión)'); }
+}
+async function leer(k){
+  try{
+    const db = await abrirDB();
+    return await new Promise((res,rej)=>{ const r = db.transaction(STORE).objectStore(STORE).get(k); r.onsuccess=()=>res(r.result); r.onerror=()=>rej(r.error); });
+  }catch(e){ return memoria[k]; }
+}
+
+/* ========= LECTURA DE PLANILLAS ========= */
+function leerArchivo(file){
+  return new Promise((res,rej)=>{
+    const fr = new FileReader();
+    fr.onload = e => {
+      try{ res(XLSX.read(new Uint8Array(e.target.result), {type:'array', cellDates:true})); }
+      catch(err){ rej(err); }
+    };
+    fr.onerror = () => rej(fr.error);
+    fr.readAsArrayBuffer(file);
+  });
+}
+// Busca la hoja y la fila de encabezado que contienen una columna "RUT"
+function ubicarTabla(wb){
+  for(const nombre of wb.SheetNames){
+    if(/^(BLOQUEADOS|HABILITADOS|REVISAR)$/i.test(nombre)) continue;
+    const aoa = XLSX.utils.sheet_to_json(wb.Sheets[nombre], {header:1, raw:true, defval:''});
+    for(let i = 0; i < Math.min(aoa.length, 25); i++){
+      const idx = aoa[i].findIndex(c => /^(rut|run|rutpersona|rutdni|rut\/dni)$/.test(norm(c)) || norm(c).startsWith('rut'));
+      if(idx >= 0){
+        const colDv = aoa[i].findIndex(c => ['dv','digito','digitoverificador'].includes(norm(c)));
+        return {hoja:nombre, aoa, filaEnc:i, colRut:idx, colDv};
+      }
+    }
+  }
+  // Sin encabezado reconocible: se asume primera hoja, primera fila encabezado, primera columna RUT
+  const nombre = wb.SheetNames[0];
+  const aoa = XLSX.utils.sheet_to_json(wb.Sheets[nombre], {header:1, raw:true, defval:''});
+  return {hoja:nombre, aoa, filaEnc:0, colRut:0, colDv:-1, supuesto:true};
+}
+// Encuentra el índice de una columna por posibles nombres
+function col(enc, opciones, porDefecto){
+  const n = enc.map(norm);
+  for(const o of opciones){ const i = n.findIndex(x => x === o); if(i>=0) return i; }
+  for(const o of opciones){ const i = n.findIndex(x => x.includes(o)); if(i>=0) return i; }
+  return porDefecto;
+}
+// Lee el RUT de una fila, uniendo la columna DV si viene separada
+const rutDeFila = (f, t) => parseRut(t.colDv >= 0 && String(f[t.colDv]).trim() !== '' && !String(f[t.colRut]).includes('-') ? `${f[t.colRut]}-${f[t.colDv]}` : f[t.colRut]);
+const filaVacia = f => f.every(c => String(c??'').trim() === '');
+
+/* ========= BASE DE BLOQUEADOS ========= */
+let BASE = {mapa:{}, total:0, actualizada:null, archivo:''};
+
+async function cargarBase(file){
+  const modo = document.querySelector('input[name=modoBase]:checked').value;
+  try{
+    const wb = await leerArchivo(file);
+    const t = ubicarTabla(wb);
+    const enc = t.aoa[t.filaEnc];
+    const c = {
+      rut: t.colRut,
+      nombre: col(enc, ['nombre','nombres'], 1),
+      apPat: col(enc, ['apellidopaterno','appaterno','paterno'], 2),
+      apMat: col(enc, ['apellidomaterno','apmaterno','materno'], 3),
+      cargo: col(enc, ['cargo'], 4),
+      validacion: col(enc, ['validacion','motivo','estado','observacion'], 5),
+      fecha: col(enc, ['fecha'], 6),
+      empresa: col(enc, ['empresa','contratista'], 7),
+    };
+    const mapa = modo === 'agregar' ? {...BASE.mapa} : {};
+    let leidos = 0, sinRut = 0;
+    for(let i = t.filaEnc+1; i < t.aoa.length; i++){
+      const f = t.aoa[i];
+      if(filaVacia(f)) continue;
+      const r = rutDeFila(f, t);
+      if(!r){ sinRut++; continue; }
+      const reg = {
+        rut: r.texto,
+        nombre: [f[c.nombre], f[c.apPat], f[c.apMat]].map(x=>String(x??'').trim()).filter(Boolean).join(' '),
+        cargo: String(f[c.cargo]??''),
+        validacion: String(f[c.validacion]??''),
+        fecha: fmtCelda(f[c.fecha]),
+        empresa: String(f[c.empresa]??''),
+      };
+      // Si una persona aparece varias veces en la base, se guardan todos sus registros
+      (mapa[r.cuerpo] = mapa[r.cuerpo] || []);
+      if(!mapa[r.cuerpo].some(x => x.validacion===reg.validacion && x.fecha===reg.fecha)) mapa[r.cuerpo].push(reg);
+      leidos++;
+    }
+    if(!leidos){ toast('No se encontraron RUT en el archivo. Revisa que tenga una columna "RUT".'); return; }
+    BASE = {mapa, total:Object.keys(mapa).length, actualizada:new Date().toISOString(), archivo:file.name};
+    await guardar('base', BASE);
+    pintarBase();
+    toast(`Base ${modo==='agregar'?'actualizada':'cargada'}: ${leidos} filas leídas${sinRut?` · ${sinRut} sin RUT omitidas`:''}`);
+    if(ARCHIVOS.length) reprocesarTodo();
+  }catch(e){
+    console.error(e); toast('No se pudo leer el archivo de base');
+  }
+}
+
+function pintarBase(){
+  const el = document.getElementById('baseStats');
+  if(!BASE.total){
+    el.innerHTML = `<div class="aviso" style="width:100%">⚠️ Aún no hay base cargada. Sube tu planilla de bloqueados para empezar.</div>`;
+    return;
+  }
+  const f = new Date(BASE.actualizada);
+  el.innerHTML = `
+    <div class="stat azul"><div class="n">${BASE.total.toLocaleString('es-CL')}</div><div class="l">RUT bloqueados en la base</div></div>
+    <div class="stat"><div class="n" style="font-size:15px;padding-top:6px">${f.toLocaleDateString('es-CL')} ${f.toLocaleTimeString('es-CL',{hour:'2-digit',minute:'2-digit'})}</div><div class="l">Última carga</div></div>
+    <div class="stat"><div class="n" style="font-size:14px;padding-top:7px;word-break:break-all">${esc(BASE.archivo)}</div><div class="l">Archivo de origen</div></div>`;
+}
+
+/* ========= CONSULTA RÁPIDA ========= */
+function consultar(){
+  const v = document.getElementById('rutConsulta').value;
+  const out = document.getElementById('consultaRes');
+  const r = parseRut(v);
+  if(!r){ out.innerHTML = '<span class="tag naranja">Ingresa un RUT</span>'; return; }
+  if(!BASE.total){ out.innerHTML = '<span class="tag naranja">Primero carga la base</span>'; return; }
+  const hits = BASE.mapa[r.cuerpo];
+  const dvTxt = r.valido ? '' : ' <span class="tag naranja">Dígito verificador no coincide</span>';
+  if(hits){
+    out.innerHTML = `<span class="tag rojo">BLOQUEADO</span> ${esc(r.texto)}${dvTxt}<br>` +
+      hits.map(h => `<div style="margin-top:6px"><b>${esc(h.nombre)}</b> · ${esc(h.cargo)} · ${esc(h.empresa)}<br><span style="color:var(--suave)">Validación: ${esc(h.validacion)||'—'} · Fecha: ${esc(h.fecha)||'—'}</span></div>`).join('');
+  } else {
+    out.innerHTML = `<span class="tag verde">SIN BLOQUEO</span> ${esc(r.texto)} no está en la base${dvTxt}`;
+  }
+}
+
+/* ========= PROCESO DE PLANILLAS NUEVAS ========= */
+let ARCHIVOS = []; // {nombre, wb, res}
+
+function procesar(item){
+  const t = ubicarTabla(item.wb);
+  const enc = t.aoa[t.filaEnc];
+  const encExtra = ['BASE · Validación','BASE · Fecha bloqueo','BASE · Empresa','BASE · Cargo','BASE · Nombre en base'];
+  const bloqueados = [], habilitados = [], revisar = [];
+  const vistos = {};
+  for(let i = t.filaEnc+1; i < t.aoa.length; i++){
+    const f = t.aoa[i].slice(0, enc.length);
+    while(f.length < enc.length) f.push('');
+    if(filaVacia(f)) continue;
+    const r = rutDeFila(f, t);
+    if(!r){ revisar.push({fila:f, motivo:'RUT vacío o ilegible'}); continue; }
+    const dup = vistos[r.cuerpo] ? `Duplicado en la planilla (fila ${vistos[r.cuerpo]})` : '';
+    vistos[r.cuerpo] = vistos[r.cuerpo] || (i+1);
+    const hits = BASE.mapa[r.cuerpo];
+    if(hits){
+      const h = hits[hits.length-1];
+      bloqueados.push({fila:f, extra:[
+        hits.map(x=>x.validacion).filter(Boolean).join(' | '),
+        hits.map(x=>x.fecha).filter(Boolean).join(' | '),
+        h.empresa, h.cargo, h.nombre
+      ]});
+      if(!r.valido) revisar.push({fila:f, motivo:'Dígito verificador incorrecto (además está BLOQUEADO)'});
+    } else if(!r.valido){
+      revisar.push({fila:f, motivo:'Dígito verificador incorrecto: verificar RUT antes de habilitar'});
+    } else {
+      habilitados.push({fila:f});
+      if(dup) revisar.push({fila:f, motivo:dup});
+    }
+  }
+  item.res = {hoja:t.hoja, enc, encExtra, bloqueados, habilitados, revisar, supuesto:t.supuesto, total:bloqueados.length+habilitados.length+revisar.filter(x=>x.motivo.startsWith('RUT vacío')||x.motivo.startsWith('Dígito verificador incorrecto: ')).length};
+  item.vista = item.vista || 'bloqueados';
+}
+
+function construirLibro(item){
+  const {enc, encExtra, bloqueados, habilitados, revisar} = item.res;
+  // Copia del libro original sin las pestañas generadas anteriormente
+  const wb = XLSX.utils.book_new();
+  for(const n of item.wb.SheetNames){
+    if(/^(BLOQUEADOS|HABILITADOS|REVISAR)$/i.test(n)) continue;
+    XLSX.utils.book_append_sheet(wb, item.wb.Sheets[n], n);
+  }
+  const anchos = (filas) => filas[0].map((_,ci) => ({wch: Math.min(45, Math.max(10, ...filas.map(f => String(fmtCelda(f[ci])).length+2)))}));
+  const hoja = (filas) => { const ws = XLSX.utils.aoa_to_sheet(filas, {cellDates:true, dateNF:'dd-mm-yyyy'}); ws['!cols'] = anchos(filas); ws['!autofilter'] = {ref: ws['!ref']}; return ws; };
+
+  XLSX.utils.book_append_sheet(wb, hoja([[...enc, ...encExtra], ...bloqueados.map(b => [...b.fila, ...b.extra])]), 'BLOQUEADOS');
+  XLSX.utils.book_append_sheet(wb, hoja([enc, ...habilitados.map(h => h.fila)]), 'HABILITADOS');
+  if(revisar.length) XLSX.utils.book_append_sheet(wb, hoja([[...enc, 'Motivo revisión'], ...revisar.map(r => [...r.fila, r.motivo])]), 'REVISAR');
+  return wb;
+}
+
+function nombreSalida(nombre){
+  const base = nombre.replace(/\.(xlsx|xls|csv)$/i,'');
+  const h = new Date(), p = n => String(n).padStart(2,'0');
+  return `${base}_DEPURADO_${h.getFullYear()}${p(h.getMonth()+1)}${p(h.getDate())}.xlsx`;
+}
+function descargar(item){
+  XLSX.writeFile(construirLibro(item), nombreSalida(item.nombre), {cellDates:true});
+}
+
+async function cargarNuevas(files){
+  if(!BASE.total){ toast('Primero carga la base de bloqueados (paso 1)'); return; }
+  for(const file of files){
+    try{
+      const wb = await leerArchivo(file);
+      const item = {nombre:file.name, wb};
+      procesar(item);
+      ARCHIVOS = ARCHIVOS.filter(a => a.nombre !== file.name);
+      ARCHIVOS.unshift(item);
+    }catch(e){ console.error(e); toast(`No se pudo leer ${file.name}`); }
+  }
+  pintarResultados();
+}
+function reprocesarTodo(){ ARCHIVOS.forEach(procesar); pintarResultados(); }
+
+function pintarResultados(){
+  const cont = document.getElementById('resultados');
+  const glob = document.getElementById('accionesGlobales');
+  glob.innerHTML = ARCHIVOS.length > 1
+    ? `<button class="btn-amarillo" id="btnTodos">⬇ Descargar los ${ARCHIVOS.length} archivos depurados</button><button class="btn-sec" id="btnLimpiar">Limpiar resultados</button>`
+    : ARCHIVOS.length ? `<button class="btn-sec" id="btnLimpiar">Limpiar resultados</button>` : '';
+  const bt = document.getElementById('btnTodos');
+  if(bt) bt.onclick = () => ARCHIVOS.forEach((a,i) => setTimeout(()=>descargar(a), i*400));
+  const bl = document.getElementById('btnLimpiar');
+  if(bl) bl.onclick = () => { ARCHIVOS = []; pintarResultados(); };
+
+  cont.innerHTML = ARCHIVOS.map((a, idx) => {
+    const r = a.res;
+    const total = r.bloqueados.length + r.habilitados.length + r.revisar.filter(x=>/^(RUT vacío|Dígito verificador incorrecto:)/.test(x.motivo)).length;
+    const vistas = {bloqueados:`Bloqueados (${r.bloqueados.length})`, habilitados:`Habilitados (${r.habilitados.length})`};
+    if(r.revisar.length) vistas.revisar = `Revisar (${r.revisar.length})`;
+    return `
+    <div class="resultado">
+      <div class="res-head">
+        <h3>📄 ${esc(a.nombre)} <span style="font-weight:400;color:var(--suave);font-size:12.5px">· hoja "${esc(r.hoja)}"</span></h3>
+        <button class="btn" data-dl="${idx}">⬇ Descargar depurado</button>
+      </div>
+      <div style="padding:0 14px">
+        <div class="stats">
+          <div class="stat"><div class="n">${total}</div><div class="l">Personas en la planilla</div></div>
+          <div class="stat rojo"><div class="n">${r.bloqueados.length}</div><div class="l">Bloqueados</div></div>
+          <div class="stat verde"><div class="n">${r.habilitados.length}</div><div class="l">Habilitados</div></div>
+          ${r.revisar.length?`<div class="stat naranja"><div class="n">${r.revisar.length}</div><div class="l">Para revisar</div></div>`:''}
+        </div>
+        ${r.supuesto?`<div class="aviso">No encontré una columna llamada "RUT"; usé la primera columna. Revisa el resultado.</div>`:''}
+      </div>
+      <div class="tabs">${Object.entries(vistas).map(([k,l]) => `<button class="tab ${a.vista===k?'activa':''}" data-idx="${idx}" data-vista="${k}">${l}</button>`).join('')}</div>
+      <div class="tabla-wrap">${tablaHTML(a)}</div>
+    </div>`;
+  }).join('');
+
+  cont.querySelectorAll('[data-dl]').forEach(b => b.onclick = () => descargar(ARCHIVOS[+b.dataset.dl]));
+  cont.querySelectorAll('.tab').forEach(b => b.onclick = () => { ARCHIVOS[+b.dataset.idx].vista = b.dataset.vista; pintarResultados(); });
+}
+
+function tablaHTML(a){
+  const r = a.res;
+  let enc, filas, clase = '';
+  if(a.vista === 'bloqueados'){ enc = [...r.enc, ...r.encExtra]; filas = r.bloqueados.map(b => [...b.fila, ...b.extra]); clase = 'bloq'; }
+  else if(a.vista === 'habilitados'){ enc = r.enc; filas = r.habilitados.map(h => h.fila); }
+  else { enc = [...r.enc, 'Motivo revisión']; filas = r.revisar.map(x => [...x.fila, x.motivo]); }
+  if(!filas.length) return `<div class="vacio">${a.vista==='bloqueados'?'✅ Nadie de esta planilla está en la base de bloqueados.':'Sin registros.'}</div>`;
+  return `<table><thead><tr>${enc.map(h=>`<th>${esc(fmtCelda(h))}</th>`).join('')}</tr></thead><tbody>${
+    filas.map(f => `<tr class="${clase}">${f.map(c=>`<td>${esc(fmtCelda(c))}</td>`).join('')}</tr>`).join('')
+  }</tbody></table>`;
+}
+
+/* ========= EVENTOS ========= */
+function zona(dropId, inputId, fn){
+  const d = document.getElementById(dropId), inp = document.getElementById(inputId);
+  d.onclick = () => inp.click();
+  inp.onchange = () => { if(inp.files.length) fn([...inp.files]); inp.value=''; };
+  d.ondragover = e => { e.preventDefault(); d.classList.add('over'); };
+  d.ondragleave = () => d.classList.remove('over');
+  d.ondrop = e => { e.preventDefault(); d.classList.remove('over'); if(e.dataTransfer.files.length) fn([...e.dataTransfer.files]); };
+}
+zona('dropBase','fileBase', files => cargarBase(files[0]));
+zona('dropNuevas','fileNuevas', cargarNuevas);
+document.getElementById('btnConsulta').onclick = consultar;
+document.getElementById('rutConsulta').onkeydown = e => { if(e.key==='Enter') consultar(); };
+document.getElementById('btnBorrarBase').onclick = async () => {
+  if(!BASE.total){ toast('No hay base guardada'); return; }
+  if(!(await pedirPin('Se borrará la base de bloqueados guardada en este navegador.'))) return;
+  BASE = {mapa:{}, total:0, actualizada:null, archivo:''};
+  await guardar('base', BASE);
+  pintarBase(); toast('Base borrada');
+};
+
+(async () => {
+  const b = await leer('base');
+  if(b && b.total) BASE = b;
+  pintarBase();
+})();
+</script>
+</body>
+</html>
